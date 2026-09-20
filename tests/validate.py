@@ -22,3 +22,5 @@ with tempfile.TemporaryDirectory() as folder:
 subprocess.run(['lune', 'run', 'tests/run.luau'], cwd=root, check=True)
 
 subprocess.run(['lune', 'run', 'tests/phoenix.luau'], cwd=root, check=True)
+
+subprocess.run(['lune', 'run', 'tests/phoenix_pose.luau'], cwd=root, check=True)

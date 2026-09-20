@@ -5,22 +5,33 @@ local Config = require(game:GetService("ReplicatedStorage").Shared.Phoenix.Confi
 local Pose = {}
 Pose.__index = Pose
 local function release(actor)
+	if actor.connection then actor.connection:Disconnect(); actor.connection = nil end
 	for motor, cf in actor.motors do
 		if motor.Parent then motor.C0, motor.Transform = cf, actor.transforms[motor] end
 	end
 	if actor.animate and actor.animate.Parent then actor.animate.Enabled = actor.wasEnabled end
 end
+-- Character replication can precede its Motor6Ds (and Part0/Part1 links).
+-- Keep discovering joints until the sequence ends; a one-shot snapshot can stay empty.
+local function capture(actor, item)
+	if item:IsA("Motor6D") and item.Part0 and item.Part1 then
+		if not actor.motors[item] then
+			actor.motors[item], actor.transforms[item], actor.offsets[item] = item.C0, item.Transform, CFrame.new()
+		end
+		actor.joints[item.Name] = item
+	elseif item.Name == "Animate" and item:IsA("LocalScript") and not actor.animate then
+		actor.animate, actor.wasEnabled = item, item.Enabled
+		item.Enabled = false
+	end
+end
+local function refresh(actor)
+	for _, item in actor.character:GetDescendants() do capture(actor, item) end
+	actor.nextRefresh = os.clock()+0.2
+end
 local function bind(character)
 	local actor = {character = character, motors = {}, transforms = {}, offsets = {}, joints = {}, punchC0 = {}}
-	actor.animate = character:FindFirstChild("Animate")
-	if actor.animate and actor.animate:IsA("LocalScript") then actor.wasEnabled = actor.animate.Enabled; actor.animate.Enabled = false
-	else actor.animate = nil end
-	for _, motor in character:GetDescendants() do
-		if motor:IsA("Motor6D") then
-			actor.motors[motor], actor.transforms[motor], actor.offsets[motor] = motor.C0, motor.Transform, CFrame.new()
-			actor.joints[motor.Name] = motor
-		end
-	end
+	actor.connection = character.DescendantAdded:Connect(function(item) capture(actor, item) end)
+	refresh(actor)
 	return actor
 end
 function Pose.new() return setmetatable({actors = {}, stored = {}, nextScan = 0}, Pose) end
@@ -33,7 +44,7 @@ function Pose:destroy()
 	for model, actor in self.stored do release(actor); self.stored[model] = nil end
 end
 function Pose:stage(data)
-	if data.phase == "Cooldown" or data.phase == "Damaged" or data.phase == "Transfer" then self:clear(data.userId); return end
+	if data.phase == "Cooldown" or data.phase == "Damaged" or data.phase == "Transfer" or data.phase == "Activate" then self:clear(data.userId); return end
 	local actor = self.actors[data.userId]
 	if actor and actor.token ~= data.token then self:clear(data.userId); actor = nil end
 	if not actor then actor = {token = data.token, motors = {}, transforms = {}}; self.actors[data.userId] = actor end
@@ -125,7 +136,8 @@ function Pose:step(dt)
 	for userId, actor in self.actors do
 		local player = Players:GetPlayerByUserId(userId)
 		local character = player and player.Character
-		if not character or not character.Parent or os.clock() > actor.expires then self:clear(userId); continue end
+		if os.clock() > actor.expires then self:clear(userId); continue end
+		if not character or not character.Parent then continue end
 		if actor.character ~= character then
 			local token, data, expires = actor.token, actor.data, actor.expires
 			self:clear(userId)
@@ -133,6 +145,7 @@ function Pose:step(dt)
 			actor.token, actor.data, actor.expires = token, data, expires
 			self.actors[userId] = actor
 		end
+		if os.clock() >= actor.nextRefresh then refresh(actor) end
 		animate(actor, actor.data, clock, dt)
 	end
 	if os.clock() >= self.nextScan then
@@ -152,7 +165,10 @@ function Pose:step(dt)
 		local root, camera = model:FindFirstChild("HumanoidRootPart"), workspace.CurrentCamera
 		if not model.Parent or not root or not camera or (root.Position-camera.CFrame.Position).Magnitude > Config.EffectDistance then
 			release(actor); self.stored[model] = nil
-		else animate(actor, {phase = "Storage", duration = 1, startedAt = clock}, clock, dt) end
+		else
+			if os.clock() >= actor.nextRefresh then refresh(actor) end
+			animate(actor, {phase = "Storage", duration = 1, startedAt = clock}, clock, dt)
+		end
 	end
 end
 return Pose
