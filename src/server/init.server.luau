@@ -24,3 +24,8 @@ if not phoenixOK then
 		if not player.Character then task.spawn(function() pcall(function() player:LoadCharacterAsync() end) end) end
 	end
 end
+
+local meeseeksOK, meeseeksError = xpcall(function()
+ require(script.Meeseeks.Service).start()
+end, debug.traceback)
+if not meeseeksOK then warn("Meeseeks startup failed", meeseeksError) end

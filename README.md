@@ -192,7 +192,7 @@ Default-sized R6/R15 avatars are the target. Very large avatars, custom characte
 
 ### Validation status and Studio checklist
 
-**Roblox Studio is not installed/accessible in the implementation environment. None of the live Studio tests below has been claimed as executed.** Automated validation passes all 33 runtime Luau files, the Rojo build/mapped modules, 64 existing portal checks, 49 Phoenix lifecycle/geometry checks, 13 pose integration checks and 66 avatar-style checks. Phoenix tests exercise production policy/controller code with a deterministic scheduler and service doubles, plus reflection-backed chamber construction, body restoration and avatar-loader timeout/fallback. Avatar checks cover R6/R15 styling, cleanup, inert geometry and the cosmetic-part budget. These tests cannot establish actual Roblox replication, character-loading order, touch physics, camera behavior or visual quality.
+**Roblox Studio is not installed/accessible in the implementation environment. None of the live Studio tests below has been claimed as executed.** Automated validation passes all 45 runtime Luau files, the Rojo build/mapped modules, 64 existing portal checks, 49 Phoenix lifecycle/geometry checks, 13 pose integration checks and 66 avatar-style checks. Phoenix tests exercise production policy/controller code with a deterministic scheduler and service doubles, plus reflection-backed chamber construction, body restoration and avatar-loader timeout/fallback. Avatar checks cover R6/R15 styling, cleanup, inert geometry and the cosmetic-part budget. These tests cannot establish actual Roblox replication, character-loading order, touch physics, camera behavior or visual quality.
 
 Run the existing offline command, `python tests/validate.py`, with the documented tools on PATH. A separate **manual-only** Studio runner is supplied at `tests/PhoenixStudio.server.luau`: during Play, paste it into a temporary Script in ServerScriptService. It intentionally kills the first test player three times to check forced Normal, forced Breakout and Random server lifecycles, movement release and Portal Gun restoration. Delete the temporary Script afterward. It is outside the Rojo tree and is not shipped with the game.
 
@@ -239,3 +239,73 @@ The pose driver now discovers Motor6Ds as they arrive, waits for their Part0/Par
 ### Avatar face and silhouette polish
 
 Legacy front-face decals are destroyed instead of hidden, preventing Phoenix transparency restoration from bringing them back. Head mesh texture maps are cleared and the drawn face has an opaque skin-colored backing. Smaller eyes use square aspect constraints, keeping them round on different head proportions. Nine broad hair wedges face the camera with their triangular sides, forming an upper/side silhouette instead of a ring of rectangular spokes. Slim lapels and an open coat skirt wrap the hips with front tails, side panels and a back panel; R15 tails follow LowerTorso. The style uses at most 25 cosmetic Parts for R6, with no per-frame animation loop or uploaded assets. Studio visual testing remains necessary, especially for custom head meshes and avatar scaling.
+
+## Mr. Meeseeks Box
+
+Every player gets a **Meeseeks Box** Tool on spawn, including after Phoenix resurrection. Equip it and click/tap to summon beside you. The dark teal cube, mint inset panels and raised blue button follow the supplied box reference. The helper uses a rounded blue head/body, lanky limbs, orange tuft and smiling face inspired by the supplied Meeseeks reference. It uses 13 physical Parts plus UI details and joints, with no downloaded meshes, clothing or animation assets. The box button depresses on a successful summon, accompanied by a short blue poof and optional audio.
+
+Walk west from the portal spawn to the **Meeseeks Task Lab**, around `(-91, 0, 22)`. A connected deck provides open movement space, command signage and a KO dummy which returns five seconds after defeat. Aim your character toward that dummy before issuing an attack. Existing portal and Phoenix modules and Rojo paths remain unchanged; two bootstrap calls initialize Meeseeks separately.
+
+### Commands
+
+Use normal Roblox chat. `/ms <command>` is the recommended namespace; `/meeseeks <command>` also works. Short aliases are registered when they do not conflict with another TextChatCommand. For example, `/ms dance` and `/dance` perform the same task. The server uses TextChatCommand.Triggered; a Player.Chatted fallback is enabled only for legacy chat. The system does not replace Roblox chat settings or override existing aliases. See the [official TextChatCommand API](https://create.roblox.com/docs/reference/engine/classes/TextChatCommand).
+
+| Command | Behavior |
+| --- | --- |
+| `/dance` | Dance for eight seconds, then become available again |
+| `/follow`, `/followme`, `/follow me` | Follow the summoner with a small gap |
+| `/comehere`, `/come` | Walk to the summoner's position at command time |
+| `/stop` | Cancel the task and stop moving |
+| `/jump` | Jump once |
+| `/wave` | Wave, then idle |
+| `/sit` | Sit until given another command |
+| `/point` | Point in the NPC's facing direction |
+| `/despawn` | Remove the newest helper with a blue poof |
+| `/attack`, `/kill` | Pursue and repeatedly hit the valid target ahead |
+| `/attack person in front of me`, `/kill person in front of me` | Same server-selected combat task |
+
+Only the summoner can command their helper. Acknowledgements, idle chatter, completion lines and blocked-task frustration appear above its head. All displayed dialogue comes from a fixed developer-written phrase list; unfiltered player chat is never displayed by the NPC. Equipping the Tool displays a short command hint, and unsuccessful summons/commands return a private notification.
+
+### Limits, targeting and safety
+
+Edit `src/shared/Meeseeks/Config.luau`. Default `MaxActivePerPlayer = 1`; values 1–3 are supported. A successful new summon replaces the oldest helper when the cap is reached. With multiple helpers, commands address the **newest** one; after despawning it, commands address the previous one. Each helper expires after 300 seconds. Owner character removal/death-respawn and disconnect clean up their helpers; the new character gets a fresh box. Summons are limited to once every two seconds and commands to once every 0.3 seconds.
+
+Summoning requires the exact server-issued Tool to be equipped and a living player outside Phoenix reconstruction. Spawn candidates need ground, headroom and no intervening wall or nearby helper. A client can only request `Summon` through MeeseeksRemote; no client-provided target, damage, position or NPC identity is accepted.
+
+Combat selects an alive player/NPC within 45 studs and a 25-degree cone ahead of the summoner's **character facing direction**, with line of sight. It prefers targets close to the center of view and nearby. It excludes the owner, all Meeseeks helpers, Phoenix-busy characters and ForceField-protected targets. NPC candidates are gathered with a bounded spatial query. Helpers path toward the selected target and deal 25 damage per hit, no more frequently than every 0.65 seconds. Every hit rechecks the target, protection, 4.5-stud melee range and line of sight. `/kill` is an alias for this same ordinary damage task, not an instant remote kill. Set `AttackPlayers = false` for NPC-only combat. There is no gore.
+
+Navigation uses server Humanoid movement and PathfindingService, with at most two simultaneous path computations and a 1.25-second repath interval per helper. Blocked paths or overly long tasks end with feedback. NPC simulation belongs to the server. Commands invalidate old navigation results so a cancelled task cannot resume after a delayed path calculation.
+
+### Files and effects
+
+| Path | Responsibility |
+| --- | --- |
+| `src/shared/Meeseeks/Config.luau` | Limits, cooldowns, damage, colors, sound IDs and test location |
+| `src/shared/Meeseeks/Commands.luau` | Whitelisted commands, aliases and accepted phrases |
+| `src/server/Meeseeks/Service.luau` | Tool grants, summoning, ownership, rate limits and cleanup |
+| `src/server/Meeseeks/Models.luau` | Box and Meeseeks geometry, rig and fixed text bubbles |
+| `src/server/Meeseeks/Chat.luau` | Modern chat registration and legacy-only fallback |
+| `src/server/Meeseeks/Controller.luau` | Tasks, acknowledgements, completion and frustration |
+| `src/server/Meeseeks/Navigation.luau` | Safe spawn placement and bounded asynchronous pathfinding |
+| `src/server/Meeseeks/Targeting.luau` | Server target selection and per-hit validation |
+| `src/server/Meeseeks/TestArea.luau` | Connected deck, signs and resetting dummy |
+| `src/client/Meeseeks/init.luau` | Tool input, private notices and nearby presentation |
+| `src/client/Meeseeks/Emotes.luau` | Procedural walking, dance, wave, sit, point and attack poses |
+| `src/client/Meeseeks/Effects.luau` | Button press, bounded particles/lights and optional sounds |
+
+No external assets are required for animation or graphics. `Config.Sounds.Activate`, `Spawn`, `Despawn` and `Hit` default to empty strings. Supply audio you have permission to use as `rbxassetid://...`; no copyrighted voice recording is included. Transient effect hosts disappear after two seconds, with at most 18 hosts per client. Distant effects and emotes beyond 180 studs are skipped. AI uses one shared low-frequency loop; client emotes use one shared update connection.
+
+### Meeseeks testing and limitations
+
+The 45 runtime Luau files compile and the original Rojo place builds. The existing 192 portal/Phoenix/avatar checks pass, plus 46 Meeseeks parser/model/targeting/navigation/service checks. These execute production modules using reflection-backed instances and controlled service doubles. They cover ownership routing, cap replacement, respawn/disconnect cleanup, ignored damage requests, command parsing, cone/range/obstruction checks and melee validation.
+
+**Roblox Studio is unavailable here; no live gameplay or visual approval is claimed.** After pulling and syncing, restart Play and verify:
+
+1. Equip the box on desktop and mobile; summon in open space and try next to a wall.
+2. Try each command, both `/ms ...` and short aliases; try the longer attack phrase.
+3. Watch follow/comehere route around a wall. Cancel movement with stop, wave and sit.
+4. Face the dummy and attack; it should take several hits, disappear and return. Face away, stand too far away, or put a wall between you and it; no wrong target should be selected.
+5. Run two Studio clients: each controls only their own helper. Confirm replacement, cap 3, disconnect cleanup, repeated death/Phoenix respawn and Tool re-grant.
+6. Test portal firing/teleportation and both Phoenix exits again. Inspect Output and confirm effects/helpers do not accumulate.
+
+Known limitations: visual anatomy/emotes approximate the artwork using basic geometry. Helpers do not travel through the existing player-only portals; issue a fresh summon after a long portal trip. Following can fail on steep/complex geometry and stops with feedback after being stuck. The spatial target query is bounded to 128 nearby parts; very crowded NPC scenes may require a dedicated NPC registry later. Chat-disabled accounts/custom chat replacements may not support these commands. Sound hooks remain silent until you provide permitted audio IDs.

@@ -52,3 +52,5 @@ RunService.Heartbeat:Connect(function(dt)
 end)
 
 task.spawn(function() require(script.Phoenix).start() end)
+
+task.spawn(function() require(script.Meeseeks).start() end)
