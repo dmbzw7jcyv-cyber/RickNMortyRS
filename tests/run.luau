@@ -134,7 +134,7 @@ local service = loadModule('src/server/Portal/Service.luau', {
 })
 service.start(remote)
 local gun = {IsA = function() return true end, GetAttribute = function() return true end, FindFirstChild = function() return {MuzzleAttachment = {WorldPosition = Vector3.new(0, 10, 15)}} end}
-local char = {Parent = true, FindFirstChildOfClass = function() return {Health = 100} end, FindFirstChild = function() return gun end}
+local char = {Parent = true, GetAttribute = function() return nil end, FindFirstChildOfClass = function() return {Health = 100} end, FindFirstChild = function() return gun end}
 player.Character, player2.Character = char, char
 local function fire(who)
 	now += 1

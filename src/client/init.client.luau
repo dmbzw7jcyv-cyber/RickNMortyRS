@@ -50,3 +50,5 @@ RunService.Heartbeat:Connect(function(dt)
 	fluid:step(math.min(dt, 0.05))
 	renderer:step(dt)
 end)
+
+task.spawn(function() require(script.Phoenix).start() end)

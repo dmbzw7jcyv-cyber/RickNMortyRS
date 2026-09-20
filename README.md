@@ -1,6 +1,6 @@
 # RickNMortyRS — Dimensional Fluid Lab
 
-A Rojo/Luau portal-gun system with a handmade gray device, red switch, green glass energy chamber, traveling energy shots, animated green spiral portals, and liquid leakage on replacement. Geometry follows the supplied gun and portal references; no uploaded meshes or portal textures are required. The original `default.project.json` and its service mappings are unchanged.
+A Rojo/Luau portal-gun system with a handmade gray device, red switch, green glass energy chamber, traveling energy shots, animated green spiral portals, and liquid leakage on replacement. Geometry follows the supplied gun and portal references; no uploaded meshes or portal textures are required. Phoenix Protocol now adds death-triggered cloning in an adjacent laboratory. The original `default.project.json` and its service mappings are unchanged.
 
 ## Run in Roblox Studio
 
@@ -104,10 +104,101 @@ The repository contains no `Highlight`, `SelectionBox`, wireframe adornment, or 
 
 Stop Play and clear the current Studio selection. In **Studio Settings → Physics**, check **AreAssembliesShown** first: Roblox documents this option as assigning each physics assembly a different outline color, which closely matches the reported symptom. Turn it off if enabled. Also check **AreSolverIslandsShown** (Physics) and **ShowBoundingBoxes** (Rendering), plus any enabled wireframe/collision overlays. Disable any active overlays and check again in Play; compare with the normal Roblox client if necessary. Also check for unrelated Highlights/SelectionBoxes already in the place. See the official [AreAssembliesShown reference](https://create.roblox.com/docs/reference/engine/classes/PhysicsSettings#AreAssembliesShown). Game scripts deliberately do not delete unrelated objects or attempt to change your editor settings. After pulling this change, stop and restart Play so the chamber and Tool are regenerated.
 
-This visual pass leaves the placement, per-player A/B state, teleportation, targeting, shared math, RemoteEvent protocol and Rojo mappings unchanged. Existing 64 offline checks and the Rojo/Luau build pass; live Studio appearance still needs inspection.
+The earlier portal visual pass left the placement, per-player A/B state, teleportation, targeting, shared math, RemoteEvent protocol and Rojo mappings unchanged. Existing 64 offline checks and the Rojo/Luau build pass; live Studio appearance still needs inspection.
 
 ## Known limitations
 
 The fluid is stylized procedural geometry and short-lived particles, not a fluid simulation or an exact reproduction of the source artwork. The center is an animated surface, not a live view into the other portal. Walls are not physically cut; crossing uses an avatar-envelope capture zone in front of the surface. Unusual avatar scales, accessories, slopes, extreme speeds, high latency and Roblox Humanoid auto-uprighting can affect the transition and need Studio tuning. The default Humanoid may upright a rotated character after a floor-to-wall exit; the initial velocity/orientation transform is preserved. Camera rotation is applied once and the default camera controller resumes afterward. StreamingEnabled integrations need separate testing. There are no console/gamepad controls yet.
 
 API references: [Camera screen rays](https://create.roblox.com/docs/reference/engine/classes/Camera#ScreenPointToRay), [touch input](https://create.roblox.com/docs/reference/engine/classes/UserInputService#TouchTapInWorld), [network ownership](https://create.roblox.com/docs/reference/engine/classes/BasePart#SetNetworkOwner).
+
+## Phoenix Protocol
+
+Phoenix adds a real death-triggered cloning lifecycle beside the portal chamber. The reference informs the tall cylindrical storage tubes, translucent mint-green glass, rounded top, heavy mechanical rings and exposed plumbing. Five tubes are built initially. Walk around the west end of the portal-test walls and along the short walkway into the lab (roughly world Z = 90–150), or place linked portals on its large walls/floor.
+
+**First join** still places you in the portal test area. **Every subsequent Humanoid death**, including the reset menu, enters:
+
+`Died → transfer → tank activation → avatar loading inside tank → reconstruction → Normal or Breakout → control restored`
+
+The orange/red **DEATH TEST / STEP HERE TO DIE** pad is at approximately `(26, 1.4, 90)`. Its server-side Touched handler checks that the touching model belongs to a player and sets the living Humanoid's Health to zero. It does not call a special resurrection path. Chamber exits and the emergency landing are separate from the pad, preventing automatic repeat deaths.
+
+### Character lifecycle and recovery
+
+Phoenix sets `Players.CharacterAutoLoads = false` during server startup and owns initial spawning and subsequent deaths. Before `LoadCharacterAsync`, it selects an exclusive hidden SpawnLocation **inside the assigned tank**. Roblox therefore creates the replacement at the tank, rather than visibly spawning it elsewhere and teleporting it afterward. CharacterAdded anchors/hides the body before normal Workspace parenting; later avatar descendants are hidden as well. After appearance/rig loading, the avatar is aligned inside the tube and fades back to its original per-part transparencies during reconstruction. The standard avatar loader preserves avatar appearance and default character scripts.
+
+While reconstructing, the root is anchored, jumping/movement/autorotation are restricted, and an invisible ForceField protects against ordinary damage. Direct Health = 0/reset is still handled as another death. Movement values, transparencies and tool state are restored on success or recovery. The portal service has one new rejection guard for `PhoenixBusy`; portal alternation, placement, rendering and momentum logic are otherwise unchanged. The existing CharacterAdded path supplies the Portal Gun to the replacement as usual.
+
+Each player receives an exclusive chamber. Five are available initially; additional players get additional tube rows and an extended lab floor/backdrop. Slots are reused after disconnect. There is no resurrection queue or shared active chamber. A quick later death cancels the previous generation and restarts the player's own chamber; delayed repair callbacks cannot reset a newer sequence.
+
+Avatar loading has an 18-second timeout. The last good avatar is cached for fallback if Roblox's loading service fails. If there is no cached avatar yet, a basic emergency R6 rig provides a playable body; this exceptional fallback may lack the normal appearance/animations until a later successful load. A separate 30-second server watchdog handles stalled sequences. Recovery restores visibility and movement, resets the machine and uses the safe landing if necessary. A failed startup restores Roblox automatic respawning. The client has its own 34-second camera timeout, error cleanup and a replicated-state check for a missing completion event. Client messages can only request a rate-limited state sync; they cannot claim death, finish reconstruction, choose an exit or release a body.
+
+### Exit variations and configuration
+
+Edit **`src/shared/Phoenix/Config.luau`**. Restart Play after changing configuration.
+
+```lua
+ExitWeights = {Normal = 1, Breakout = 1}, -- 50/50; e.g. 3 and 1 gives 75/25
+Debug = {ForceExitVariation = "Random"}, -- nil/"Random", "Normal", "Breakout"
+```
+
+The debug option only selects the exit. Death, transfer, avatar loading and reconstruction always run first. The normal sequence lasts roughly five seconds plus avatar-loading time; breakout is roughly six seconds plus loading. Normal drains the fluid with a changing cylinder height/center, reduces bubbles, slides drips down the glass, unlocks clamps, lifts the glass and releases steam. Breakout starts with a successful wake-up, then pump/lock failure, three procedural glass strikes with accumulating cracks, a glass/fluid burst and a stumble out. It leaves lifted/bent locks, missing glass and an error display briefly before repair. The two exit timelines live in `Sequences.luau`, separate from lifecycle logic.
+
+### Phoenix modules
+
+| Path | Responsibility |
+| --- | --- |
+| `src/shared/Phoenix/Config.luau` | Probabilities, debug mode, timing, colors, effect limits and audio IDs |
+| `src/shared/Phoenix/Policy.luau` | Variation selection, chamber allocation and generation validity |
+| `src/shared/Phoenix/Sequences.luau` | Modular Normal and Breakout stage lists |
+| `src/server/Phoenix/Service.luau` | Death detection, generation cancellation, spawning, lifecycle and watchdog |
+| `src/server/Phoenix/AvatarLoader.luau` | Bounded avatar loading, last-good avatar cache and emergency rig |
+| `src/server/Phoenix/Body.luau` | Body hiding, anchoring, reconstruction fade and restoration |
+| `src/server/Phoenix/Chamber.luau` | Server fluid/door/lock movement, status changes and reset |
+| `src/server/Phoenix/Model.luau` | Tube, glass, dome, pump, hoses, cables, vents, panels and internal spawn |
+| `src/server/Phoenix/Lab.luau` | Lab geometry, consoles, overflow rows, safe landing and Death Test Block |
+| `src/client/Phoenix/init.luau` | Phoenix event routing and presentation cleanup |
+| `src/client/Phoenix/Camera.luau` | Short transfer fade/glitch, chamber camera and control recovery |
+| `src/client/Phoenix/Pose.luau` | Procedural shoulder/neck/torso movement and original-pose restoration |
+| `src/client/Phoenix/Effects.luau` | Bubbles, sparks, steam, cracks, dripping/burst fluid, harmless shards and sound playback |
+
+The existing Rojo service mappings are unchanged. New Phoenix folders are discovered through the existing src paths; `src/client/Phoenix/init.luau` becomes a ModuleScript containing its camera/pose/effect children. Runtime remotes are `PortalRemote` and the separate `PhoenixRemote`.
+
+### Audio and animations
+
+No uploaded animation assets are required. Pounding/waking/stumbling uses small additive Motor6D C0 poses for R6/R15 with original C0 restoration. Existing Animate scripts are temporarily paused locally during the pose and restored afterward. Custom rigs may need joint-name/axis adjustments.
+
+Fill `Phoenix.Config.Sounds` with audio IDs your experience may use (`"rbxassetid://123..."`). All hooks default to silent and have explicit names:
+
+`Transfer`, `Startup`, `ElectricalActivation`, `Bubbles`, `Pump`, `Drain`, `Locks`, `Open`, `Steam`, `Malfunction`, `Alarm`, `HitGlass`, `CrackGlass`, `BreakGlass`, `LiquidBurst`, `Sparks`, `Cooldown`.
+
+Only Alarm loops, and it is removed shortly after escape or when its effect record is cleared. One-shot sounds have bounded lifetimes. Built-in sparkle/smoke textures provide the particle effects. No copyrighted audio IDs are bundled.
+
+### Performance and limitations
+
+Chamber structure and mechanical motion are replicated by the server. Cosmetic cracks, splashes, glass fragments, sparks and steam are client-only. Debris is anchored, non-colliding, non-touching and non-queryable; fluid is a visual approximation. There are at most 100 temporary cosmetic Parts per client, with short cleanup timers. A burst requests eight harmless glass fragments and fourteen droplets. Idle pump leaks have a rate of only 0.5 particles/second per chamber. Distant sequences beyond 230 studs skip cosmetic effects for observers. The client shares one update connection for Phoenix presentation, and the server watchdog checks twice a second rather than every frame.
+
+Default-sized R6/R15 avatars are the target. Very large avatars, custom character scripts, custom movement/camera controllers, custom rigs and StreamingEnabled require integration testing. The normal exit is guided across the threshold before control returns; breakout uses a procedural lean/stumble, not a full ragdoll. Avatar service failures can show an emergency body. Tube construction is an approximation of the reference using built-in Roblox geometry. Live lighting, glass transparency and limb angles still require visual tuning in Studio.
+
+### Validation status and Studio checklist
+
+**Roblox Studio is not installed/accessible in the implementation environment. None of the live Studio tests below has been claimed as executed.** Automated validation passes all 29 runtime Luau files, the Rojo build/mapped modules, 64 existing portal checks and 35 Phoenix checks. Phoenix tests exercise production policy/controller code with a deterministic scheduler and service doubles, plus reflection-backed chamber construction, body restoration and avatar-loader timeout/fallback. They cover forced/random choices, simultaneous deaths, repeated/interrupting deaths, sequence exceptions, watchdog recovery, chamber reuse and ignored client completion/death claims. These tests cannot establish actual Roblox replication, character-loading order, touch physics, camera behavior or visual quality.
+
+Run the existing offline command, `python tests/validate.py`, with the documented tools on PATH. A separate **manual-only** Studio runner is supplied at `tests/PhoenixStudio.server.luau`: during Play, paste it into a temporary Script in ServerScriptService. It intentionally kills the first test player three times to check forced Normal, forced Breakout and Random server lifecycles, movement release and Portal Gun restoration. Delete the temporary Script afterward. It is outside the Rojo tree and is not shipped with the game.
+
+Before publishing, verify all of the following in Studio:
+
+| Check | Action / expected result |
+| --- | --- |
+| 1–2: real touch death and trigger | Touch the Death Test Block; Health reaches 0 and transfer begins promptly |
+| 3: other death causes | Use Reset Character and server-side Health = 0; both enter the same Phoenix flow |
+| 4–5: actual tank reconstruction | Watch from a second client: no normal-spawn flash; your normal avatar forms inside its tank |
+| 6–7: both exits | Observe draining/opening and malfunction/pounding/cracks/burst/stumble |
+| 8–10: debug and random | Force Normal, force Breakout, then set Random and repeat; every run includes death and reconstruction |
+| 11: movement | Walk, jump, equip/fire the Portal Gun after each exit; interrupt reconstruction with another death |
+| 12: camera | Verify camera returns to Custom, subject follows the new Humanoid, fade clears, and movement input works |
+| 13: repeatability | Die/resurrect at least five times, including reset during load/exit/cooldown |
+| 14: cleanup | Repeated bursts leave no lasting shards/splats; inspect PhoenixClientEffects and check Output |
+| 15: multiplayer | Two clients die together; each gets a different tube. Disconnect one mid-sequence, then join another |
+| 16: portal preservation | Place A/B, traverse both ways, test momentum, then repeat after resurrection and portal into/out of the lab |
+
+Also inspect portrait/landscape mobile UI, default R6 and R15 arm poses, character accessories, low graphics settings and artificial network latency. Test each configured sound's asset permissions once IDs have been supplied.

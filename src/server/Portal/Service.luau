@@ -58,7 +58,7 @@ function Service.start(remote)
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local tool = character and character:FindFirstChild("Portal Gun")
-		if not humanoid or humanoid.Health <= 0 or not tool or not tool:IsA("Tool") or not tool:GetAttribute("PortalGun") then return end
+		if not humanoid or humanoid.Health <= 0 or character:GetAttribute("PhoenixBusy") or not tool or not tool:IsA("Tool") or not tool:GetAttribute("PortalGun") then return end
 		local muzzle = tool:FindFirstChild("Muzzle")
 		if not muzzle then return end
 		local key = tostring(player.UserId) .. ":" .. state.nextSlot
