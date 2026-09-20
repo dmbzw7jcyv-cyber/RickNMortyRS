@@ -21,6 +21,7 @@ part('Left Leg', r.Vector3.new(1,2,1), r.Vector3.new(-0.5,1,0))
 part('Right Leg', r.Vector3.new(1,2,1), r.Vector3.new(0.5,1,0))
 local accessory = r.Instance.new('Accessory'); accessory.Parent = rig
 local shirt = r.Instance.new('Shirt'); shirt.Parent = rig
+local oldFace = r.Instance.new('Decal'); oldFace.Name, oldFace.Face, oldFace.Parent = 'face', r.Enum.NormalId.Front, head
 check(AvatarStyle.apply(rig), 'production style applies to a complete R6 rig')
 local style = rig:FindFirstChild('RickStyle')
 check(style and rig:GetAttribute('RickStyled'), 'style folder and marker created')
@@ -35,7 +36,7 @@ for _, item in style:GetDescendants() do
 		check(item:GetAttribute('PortalSurface') == false, 'visual rejects portal placement: '..item.Name)
 	end
 end
-check(visualParts <= 24, 'R6 style remains within lightweight part budget')
+check(visualParts <= 25, 'R6 style remains within lightweight part budget')
 local oldStyle = style
 check(AvatarStyle.apply(rig) and oldStyle.Parent == nil, 'reapply replaces rather than duplicates style')
 local faces = 0
@@ -61,4 +62,9 @@ check(AvatarStyle.apply(r15), 'production style applies to R15')
 check(r15.RightUpperArm.Color == r.Color3.fromRGB(238,239,235) and r15.RightHand.Color == r.Color3.fromRGB(190,181,166), 'R15 coat sleeves preserve skin-colored hands')
 check(r15.RightUpperLeg.Color == r.Color3.fromRGB(105,78,42) and r15.RightFoot.Color == r.Color3.fromRGB(37,39,39), 'R15 pants and shoes recolored')
 check(r15.UpperTorso.Color == r.Color3.fromRGB(121,211,202) and r15.RickStyle:FindFirstChild('CoatBack'), 'R15 torso and coat back are covered')
+check(oldFace.Parent == nil, 'legacy face removed so Phoenix cannot restore its transparency')
+check(head.RickFace.FaceBacking.BackgroundTransparency == 0, 'opaque skin backing covers baked face details')
+check(head.RickFace.LeftEye:FindFirstChildOfClass('UIAspectRatioConstraint').AspectRatio == 1 and head.RickFace.LeftEye.Size.X.Scale < 0.25, 'eyes are smaller and constrained to circles')
+local tail = r15.RickStyle.CoatTailLeft
+check(tail:FindFirstChildOfClass('WeldConstraint').Part0 == r15.LowerTorso and tail.CFrame.Position.Z < -r15.LowerTorso.Size.Z/2, 'coat tails attach at hips and remain visible in front of legs')
 print(string.format('%d avatar style checks passed; Studio appearance still requires inspection.', passed))
