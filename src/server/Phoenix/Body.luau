@@ -33,6 +33,7 @@ function Body.reveal(state, duration)
 	if state.connection then state.connection:Disconnect(); state.connection = nil end
 	for item, transparency in state.visuals do
 		if item.Parent then
+			if duration == 0 then item.Transparency = transparency; continue end
 			local tween = TweenService:Create(item, TweenInfo.new(duration), {Transparency = transparency})
 			table.insert(state.tweens, tween); tween:Play()
 		end

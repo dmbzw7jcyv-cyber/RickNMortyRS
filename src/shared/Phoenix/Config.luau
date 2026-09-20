@@ -2,7 +2,7 @@
 return {
 	InitialChambers = 5, Columns = 5, Spacing = 22,
 	Origin = Vector3.new(0, 0, 136),
-	TransferTime = 0.45, ReconstructionTime = 1.35,
+	TransferTime = 0.45,
 	LoadTimeout = 18, SequenceTimeout = 30, ClientTimeout = 34, RetryDelay = 2,
 	NormalCooldown = 2, DamagedCooldown = 4,
 	ExitWeights = {Normal = 1, Breakout = 1},

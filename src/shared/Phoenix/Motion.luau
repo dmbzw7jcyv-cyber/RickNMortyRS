@@ -17,7 +17,8 @@ function Motion.sample(phase, t, clock, hit, variation)
 	return {
 		bob = floating and math.sin(clock*1.6)*0.13 or 0,
 		roll = floating and math.sin(clock*0.9)*0.035 or 0,
-		forward = math.max(0, strike)*0.75,
+		strike = strike, ready = ready,
+		forward = ready and 0.45+math.max(0, strike)*0.7 or 0,
 		shoulder = ready and 1.05+strike*0.48 or (0.12+math.sin(clock*1.4)*0.035),
 		elbow = ready and -0.7+math.max(0, strike)*0.65 or -0.18,
 		lean = phase == "Exit" and variation == "Breakout" and math.sin(t*math.pi)*0.24 or -strike*0.1,

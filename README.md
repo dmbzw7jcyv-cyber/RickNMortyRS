@@ -118,13 +118,13 @@ Phoenix adds a real death-triggered cloning lifecycle beside the portal chamber.
 
 **First join** still places you in the portal test area. **Every subsequent Humanoid death**, including the reset menu, enters:
 
-`Died → transfer → tank activation → avatar loading inside tank → reconstruction → Normal or Breakout → control restored`
+`Died → transfer → tank activation → instant avatar handoff inside tank → Normal or Breakout → control restored`
 
 The orange/red **DEATH TEST / STEP HERE TO DIE** pad is at approximately `(26, 1.4, 90)`. Its server-side Touched handler checks that the touching model belongs to a player and sets the living Humanoid's Health to zero. It does not call a special resurrection path. Chamber exits and the emergency landing are separate from the pad, preventing automatic repeat deaths.
 
 ### Character lifecycle and recovery
 
-Phoenix sets `Players.CharacterAutoLoads = false` during server startup and owns initial spawning and subsequent deaths. Before `LoadCharacterAsync`, it selects an exclusive hidden SpawnLocation **inside the assigned tank**. Roblox therefore creates the replacement at the tank, rather than visibly spawning it elsewhere and teleporting it afterward. CharacterAdded anchors/hides the body before normal Workspace parenting; later avatar descendants are hidden as well. After appearance/rig loading, the avatar is aligned inside the tube and fades back to its original per-part transparencies during reconstruction. The standard avatar loader preserves avatar appearance and default character scripts.
+Phoenix sets `Players.CharacterAutoLoads = false` during server startup and owns initial spawning and subsequent deaths. Before `LoadCharacterAsync`, it selects an exclusive hidden SpawnLocation **inside the assigned tank**. Roblox therefore creates the replacement at the tank, rather than visibly spawning it elsewhere and teleporting it afterward. CharacterAdded anchors/hides the body before normal Workspace parenting; later avatar descendants are hidden as well. After appearance/rig loading, the avatar is aligned inside the tube and its original transparencies are restored immediately. The reserve copy remains visible during loading and is removed when Wake starts; there is no reconstruction stage or fade-in. The standard avatar loader preserves avatar appearance and default character scripts.
 
 While reconstructing, the root is anchored, jumping/movement/autorotation are restricted, and an invisible ForceField protects against ordinary damage. Direct Health = 0/reset is still handled as another death. Movement values, transparencies and tool state are restored on success or recovery. The portal service has one new rejection guard for `PhoenixBusy`; portal alternation, placement, rendering and momentum logic are otherwise unchanged. The existing CharacterAdded path supplies the Portal Gun to the replacement as usual.
 
@@ -141,7 +141,7 @@ ExitWeights = {Normal = 1, Breakout = 1}, -- 50/50; e.g. 3 and 1 gives 75/25
 Debug = {ForceExitVariation = "Random"}, -- nil/"Random", "Normal", "Breakout"
 ```
 
-The debug option only selects the exit. Death, transfer, avatar loading and reconstruction always run first. The normal sequence lasts roughly five seconds plus avatar-loading time; breakout is roughly seven seconds plus loading. Normal drains the fluid with a changing cylinder height/center, reduces bubbles, slides drips down the glass, unlocks clamps, lifts the glass and releases steam. Breakout starts with a successful wake-up, then pump/lock failure, three procedural glass strikes with accumulating cracks, a glass/fluid burst and a stumble out. It leaves lifted/bent locks, missing glass and an error display briefly before repair. The two exit timelines live in `Sequences.luau`, separate from lifecycle logic.
+The debug option only selects the exit. Death, transfer and avatar loading always run first; the visible reconstruction stage has been removed. The normal sequence lasts roughly four seconds plus avatar-loading time; breakout is roughly six seconds plus loading. Normal drains the fluid with a changing cylinder height/center, reduces bubbles, slides drips down the glass, unlocks clamps, lifts the glass and releases steam. Breakout starts with a successful wake-up, then pump/lock failure, three procedural glass strikes with accumulating cracks, a glass/fluid burst and a stumble out. It leaves lifted/bent locks, missing glass and an error display briefly before repair. The two exit timelines live in `Sequences.luau`, separate from lifecycle logic.
 
 ### Phoenix modules
 
@@ -149,12 +149,13 @@ The debug option only selects the exit. Death, transfer, avatar loading and reco
 | --- | --- |
 | `src/shared/Phoenix/Config.luau` | Probabilities, debug mode, timing, colors, effect limits and audio IDs |
 | `src/shared/Phoenix/Policy.luau` | Variation selection, chamber allocation and generation validity |
+| `src/shared/Phoenix/Punch.luau` | Analytic arm aiming, two-bone elbow solve and curved glass contact points |
 | `src/shared/Phoenix/Motion.luau` | Continuous float/strike curves and shared impact timing |
 | `src/server/Phoenix/Storage.luau` | Safe cosmetic reserve-avatar bodies in assigned idle tanks |
 | `src/shared/Phoenix/Sequences.luau` | Modular Normal and Breakout stage lists |
 | `src/server/Phoenix/Service.luau` | Death detection, generation cancellation, spawning, lifecycle and watchdog |
 | `src/server/Phoenix/AvatarLoader.luau` | Bounded avatar loading, last-good avatar cache and emergency rig |
-| `src/server/Phoenix/Body.luau` | Body hiding, anchoring, reconstruction fade and restoration |
+| `src/server/Phoenix/Body.luau` | Body hiding during loading, anchoring, immediate reveal and restoration |
 | `src/server/Phoenix/Chamber.luau` | Server fluid/door/lock movement, status changes and reset |
 | `src/server/Phoenix/Model.luau` | Tube, glass, dome, pump, hoses, cables, vents, panels and internal spawn |
 | `src/server/Phoenix/Lab.luau` | Lab geometry, consoles, overflow rows, safe landing and Death Test Block |
@@ -183,7 +184,7 @@ Default-sized R6/R15 avatars are the target. Very large avatars, custom characte
 
 ### Validation status and Studio checklist
 
-**Roblox Studio is not installed/accessible in the implementation environment. None of the live Studio tests below has been claimed as executed.** Automated validation passes all 31 runtime Luau files, the Rojo build/mapped modules, 64 existing portal checks and 44 Phoenix checks. Phoenix tests exercise production policy/controller code with a deterministic scheduler and service doubles, plus reflection-backed chamber construction, body restoration and avatar-loader timeout/fallback. They cover forced/random choices, simultaneous deaths, repeated/interrupting deaths, sequence exceptions, watchdog recovery, chamber reuse and ignored client completion/death claims. These tests cannot establish actual Roblox replication, character-loading order, touch physics, camera behavior or visual quality.
+**Roblox Studio is not installed/accessible in the implementation environment. None of the live Studio tests below has been claimed as executed.** Automated validation passes all 32 runtime Luau files, the Rojo build/mapped modules, 64 existing portal checks and 49 Phoenix checks. Phoenix tests exercise production policy/controller code with a deterministic scheduler and service doubles, plus reflection-backed chamber construction, body restoration and avatar-loader timeout/fallback. They cover forced/random choices, simultaneous deaths, repeated/interrupting deaths, sequence exceptions, watchdog recovery, chamber reuse and ignored client completion/death claims. These tests cannot establish actual Roblox replication, character-loading order, touch physics, camera behavior or visual quality.
 
 Run the existing offline command, `python tests/validate.py`, with the documented tools on PATH. A separate **manual-only** Studio runner is supplied at `tests/PhoenixStudio.server.luau`: during Play, paste it into a temporary Script in ServerScriptService. It intentionally kills the first test player three times to check forced Normal, forced Breakout and Random server lifecycles, movement release and Portal Gun restoration. Delete the temporary Script afterward. It is outside the Rojo tree and is not shipped with the game.
 
@@ -207,10 +208,16 @@ Also inspect portrait/landscape mobile UI, default R6 and R15 arm poses, charact
 
 ### Floating bodies, fluid and breakout polish
 
-Assigned idle tanks now contain a cosmetic copy of their owner's avatar, floating above the tank floor with slow bobbing, relaxed legs and slight sway. Unassigned tanks contain fluid but no player body. The copy is removed as soon as the tank sequence starts, so the actual reconstructed character takes its place; a new reserve body appears after repair/cooldown (within one second). Stored bodies have no scripts or tools, cannot collide or trigger touch events, and are excluded from portal raycasts. Death detection and respawn ownership are unchanged.
+Assigned idle tanks now contain a cosmetic copy of their owner's avatar, floating above the tank floor with slow bobbing, relaxed legs and slight sway. Unassigned tanks contain fluid but no player body. The copy stays visible through transfer/loading and is removed when Wake starts, so the living character takes its place without a fade; a new reserve body appears after repair/cooldown (within one second). Stored bodies have no scripts or tools, cannot collide or trigger touch events, and are excluded from portal raycasts. Death detection and respawn ownership are unchanged.
 
 Tanks reset **full**, with a stronger green liquid volume, a visible liquid surface, and seven slow rising bubbles per second. Both the surface and liquid level lower during normal drainage; breakout empties them with the existing splash burst. Live characters float while sealed inside the chamber. Cosmetic copies are animated only within the existing effect distance.
 
 Breakout now uses three distinct wind-up/extension/contact/recoil strikes. The last strike stays extended until the glass fails. Arm, torso and leg poses blend continuously between phases; PreSimulation applies poses after the Animator to avoid animation fighting. First/second glass jolts, cracks and hit sounds share the contact timestamp; the final impact accompanies shattering. R6 shoulder rotations use torso axes as well as R15, rather than assuming their joint axes match. No uploaded animation is required.
 
 Additional offline checks cover full/empty fluid, storage-body sanitization/cleanup and strike continuity. **Studio visual testing remains required:** force Breakout, inspect R6 and R15 hands meeting the glass, confirm liquid visibility on low/high graphics, verify reserve bodies disappear during reconstruction and return after repair, and check movement/camera restoration. Large/custom avatars can require pose or tank-size tuning.
+
+### Punch contact and liquid visibility correction
+
+The tank shell and dome now use translucent SmoothPlastic instead of Glass to avoid the suspected transparent-content rendering problem. The liquid volume uses a stronger 0.24 transparency with a distinct surface and bubbles; test it at both low and high graphics quality. Breakout alternates right/left/right punches at points on the curved glass. R15 shoulders, elbows and wrists use an analytic two-bone target solve; R6 uses a rigid-arm aim with forward shoulder travel. This replaces the prior generic two-arm swing. The final fist remains extended as the glass breaks. Custom rigs or unusual proportions still need Studio inspection.
+
+The visible reconstruction stage and 1.35-second body fade have been removed. A stored body remains present through transfer/activation while the server loads the replacement invisibly at the tank; the living avatar becomes fully visible immediately before Wake. The death-triggered lifecycle, two exits, camera/control restoration and portal mechanics remain in place. Check the handoff with a second Studio client as well as the cinematic camera.

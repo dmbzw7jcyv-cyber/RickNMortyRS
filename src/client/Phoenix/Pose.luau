@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local Motion = require(game:GetService("ReplicatedStorage").Shared.Phoenix.Motion)
+local Punch = require(game:GetService("ReplicatedStorage").Shared.Phoenix.Punch)
 local Config = require(game:GetService("ReplicatedStorage").Shared.Phoenix.Config)
 local Pose = {}
 Pose.__index = Pose
@@ -10,13 +11,14 @@ local function release(actor)
 	if actor.animate and actor.animate.Parent then actor.animate.Enabled = actor.wasEnabled end
 end
 local function bind(character)
-	local actor = {character = character, motors = {}, transforms = {}, offsets = {}}
+	local actor = {character = character, motors = {}, transforms = {}, offsets = {}, joints = {}, punchC0 = {}}
 	actor.animate = character:FindFirstChild("Animate")
 	if actor.animate and actor.animate:IsA("LocalScript") then actor.wasEnabled = actor.animate.Enabled; actor.animate.Enabled = false
 	else actor.animate = nil end
 	for _, motor in character:GetDescendants() do
 		if motor:IsA("Motor6D") then
 			actor.motors[motor], actor.transforms[motor], actor.offsets[motor] = motor.C0, motor.Transform, CFrame.new()
+			actor.joints[motor.Name] = motor
 		end
 	end
 	return actor
@@ -36,6 +38,60 @@ function Pose:stage(data)
 	if actor and actor.token ~= data.token then self:clear(data.userId); actor = nil end
 	if not actor then actor = {token = data.token, motors = {}, transforms = {}}; self.actors[data.userId] = actor end
 	actor.data, actor.expires = data, os.clock()+data.duration+2
+end
+local function punch(actor, data, p, dt)
+	if not p.ready or not data.cf then
+		for motor, previous in actor.punchC0 do
+			if motor.Parent then
+				actor.punchC0[motor] = previous:Lerp(motor.C0, 1-math.exp(-14*dt))
+				motor.C0 = actor.punchC0[motor]
+			end
+		end
+		return
+	end
+	local r6 = actor.joints["Right Shoulder"] ~= nil
+	for _, side in {-1, 1} do
+		local prefix = side == -1 and "Left" or "Right"
+		local shoulder = actor.joints[prefix .. (r6 and " Shoulder" or "Shoulder")]
+		if not shoulder or not shoulder.Part0 or not shoulder.Part1 then continue end
+		local elbow, wrist = actor.joints[prefix.."Elbow"], actor.joints[prefix.."Wrist"]
+		local original = actor.motors[shoulder]
+		local joint = shoulder.Part0.CFrame:PointToWorldSpace(original.Position)
+		local height = data.cf:PointToObjectSpace(joint).Y-0.25
+		local contact = Punch.contact(data.cf, side, height)
+		local guard = joint+data.cf:VectorToWorldSpace(Vector3.new(-side*0.25, -0.45, -0.65))
+		local selected = (data.hit == 2 and side == -1) or (data.hit ~= 2 and side == 1)
+		local extension = selected and math.clamp(p.strike, 0, 1) or 0
+		local target = guard:Lerp(contact, extension)
+		local function set(motor, desired, parentCF)
+			local c0 = parentCF:Inverse()*desired*motor.C1
+			local previous = actor.punchC0[motor] or motor.C0
+			actor.punchC0[motor] = previous:Lerp(c0, 1-math.exp(-35*dt))
+			motor.C0, motor.Transform = actor.punchC0[motor], CFrame.new()
+		end
+		if elbow and wrist and elbow.Part1 and wrist.Part1 then
+			local a = (actor.motors[elbow].Position-shoulder.C1.Position).Magnitude
+			local forearm = (actor.motors[wrist].Position-elbow.C1.Position).Magnitude
+			local tip = Vector3.new(0, -wrist.Part1.Size.Y/2, 0)
+			local hand = (tip-wrist.C1.Position).Magnitude
+			local bend, endPoint = Punch.bend(joint, target, a, forearm+hand, data.cf:VectorToWorldSpace(Vector3.new(side*0.5, -1, 0)))
+			local upperCF = Punch.aim(joint, shoulder.C1.Position, actor.motors[elbow].Position, bend)
+			local lowerTip = elbow.C1.Position+(actor.motors[wrist].Position-elbow.C1.Position).Unit*(forearm+hand)
+			local lowerCF = Punch.aim(bend, elbow.C1.Position, lowerTip, endPoint)
+			local wristPoint = lowerCF:PointToWorldSpace(actor.motors[wrist].Position)
+			local handCF = Punch.aim(wristPoint, wrist.C1.Position, tip, endPoint)
+			set(shoulder, upperCF, shoulder.Part0.CFrame)
+			set(elbow, lowerCF, upperCF)
+			set(wrist, handCF, lowerCF)
+		else
+			local tip = Vector3.new(0, -shoulder.Part1.Size.Y/2, 0)
+			-- R6 has a rigid arm; move the shoulder slightly forward for fist contact.
+			local reach = (tip-shoulder.C1.Position).Magnitude
+			local delta = target-joint
+			if delta.Magnitude > reach then joint += delta.Unit*(delta.Magnitude-reach) end
+			set(shoulder, Punch.aim(joint, shoulder.C1.Position, tip, target), shoulder.Part0.CFrame)
+		end
+	end
 end
 local function animate(actor, data, clock, dt)
 	local t = math.clamp((clock-data.startedAt)/data.duration, 0, 1)
@@ -62,6 +118,7 @@ local function animate(actor, data, clock, dt)
 		motor.C0 = CFrame.new(original.Position)*actor.offsets[motor]*original.Rotation
 		motor.Transform = CFrame.new() -- Applied in PreSimulation, after Animator evaluation.
 	end
+	punch(actor, data, p, dt)
 end
 function Pose:step(dt)
 	local clock = workspace:GetServerTimeNow()

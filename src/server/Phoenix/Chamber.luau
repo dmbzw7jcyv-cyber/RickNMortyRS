@@ -12,18 +12,18 @@ function Chamber.fluid(slot, amount, duration)
 	Chamber.tween(slot, slot.bubbles, duration, {Rate = amount > 0.01 and 9 or 0})
 	local cf = slot.cf*CFrame.new(0, slot.floorY+height/2, 0)*CFrame.Angles(0, 0, math.pi/2)
 	Chamber.tween(slot, slot.fluid, duration, {Size = Vector3.new(height, 5.45, 5.45), CFrame = cf,
-		Transparency = amount > 0.01 and 0.38 or 1})
+		Transparency = amount > 0.01 and 0.24 or 1})
 end
 function Chamber.reset(slot)
 	slot.revision += 1
 	for _, tween in slot.tweens do tween:Cancel() end
 	table.clear(slot.tweens)
-	slot.glass.CFrame, slot.glass.Transparency = slot.glassCF, 0.8
-	slot.dome.CFrame, slot.dome.Transparency = slot.domeCF, 0.8
+	slot.glass.CFrame, slot.glass.Transparency = slot.glassCF, 0.88
+	slot.dome.CFrame, slot.dome.Transparency = slot.domeCF, 0.88
 	for _, lock in slot.locks do lock.part.CFrame = lock.cf end
 	slot.fluid.Size = Vector3.new(7.6, 5.45, 5.45)
 	slot.fluid.CFrame = slot.cf*CFrame.new(0, slot.floorY+3.8, 0)*CFrame.Angles(0, 0, math.pi/2)
-	slot.fluid.Transparency, slot.light.Brightness = 0.38, 0.65
+	slot.fluid.Transparency, slot.light.Brightness = 0.24, 0.65
 	slot.surface.CFrame = slot.cf*CFrame.new(0, slot.floorY+7.6, 0)*CFrame.Angles(0, 0, math.pi/2)
 	slot.surface.Transparency, slot.bubbles.Rate = 0.18, 7
 	slot.lamp.Color, slot.status.Text = Config.Green, "PHOENIX / " .. slot.id .. "\nSTANDBY"
@@ -35,7 +35,7 @@ function Chamber.stage(slot, name, duration, hit)
 	if name == "Activate" then
 		slot.lamp.Color, slot.light.Brightness = Config.Amber, 1.2
 		Chamber.fluid(slot, 1, duration)
-	elseif name == "Reconstruct" then
+	elseif name == "Wake" then
 		slot.lamp.Color = Config.Green
 	elseif name == "Drain" then
 		Chamber.fluid(slot, 0, duration)

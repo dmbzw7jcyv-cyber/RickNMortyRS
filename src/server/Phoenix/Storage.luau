@@ -37,7 +37,8 @@ function Storage.start(lab)
 			for _, slot in lab.slots do
 				if not bound[slot] then
 					bound[slot] = slot.model:GetAttributeChangedSignal("Phase"):Connect(function()
-						if slot.model:GetAttribute("Phase") ~= "Idle" then Storage.clear(slot) end
+						local phase = slot.model:GetAttribute("Phase")
+						if phase ~= "Idle" and phase ~= "Transfer" and phase ~= "Activate" then Storage.clear(slot) end
 					end)
 				end
 				local player = slot.owner and Players:GetPlayerByUserId(slot.owner)
@@ -47,7 +48,7 @@ function Storage.start(lab)
 				if idle and player and not player:GetAttribute("PhoenixActive") and hum and hum.Health > 0
 					and player:HasAppearanceLoaded() then
 					if slot.storedSource ~= char then Storage.create(slot, char) end
-				else Storage.clear(slot) end
+				elseif not player or not player:GetAttribute("PhoenixActive") or (slot.model:GetAttribute("Phase") ~= "Transfer" and slot.model:GetAttribute("Phase") ~= "Activate") then Storage.clear(slot) end
 			end
 			task.wait(1)
 		end

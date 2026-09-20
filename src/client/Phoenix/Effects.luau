@@ -3,11 +3,12 @@ local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local Config = require(game:GetService("ReplicatedStorage").Shared.Phoenix.Config)
 local Motion = require(game:GetService("ReplicatedStorage").Shared.Phoenix.Motion)
+local Punch = require(game:GetService("ReplicatedStorage").Shared.Phoenix.Punch)
 local Effects = {}
 Effects.__index = Effects
 local soundStages = {
 	Transfer = {"Transfer"}, Activate = {"Startup", "ElectricalActivation", "Pump"},
-	Reconstruct = {"Bubbles"}, Wake = {"Pump"}, Pump = {"Pump"}, Drain = {"Drain"},
+	Wake = {"Pump", "Bubbles"}, Pump = {"Pump"}, Drain = {"Drain"},
 	Unlock = {"Locks"}, Open = {"Open", "Steam"}, Malfunction = {"Malfunction"},
 	Burst = {"BreakGlass", "LiquidBurst", "Sparks"},
 	Cooldown = {"Cooldown"}, Damaged = {"Sparks"},
@@ -89,7 +90,17 @@ function Effects:record(data)
 end
 function Effects:crack(record, hit)
 	for i = 1, 5 do
-		local start = Vector3.new((hit-2)*0.65, 5.5+hit*0.3, -2.95)
+		local side = hit == 2 and -1 or 1
+		local player = Players:GetPlayerByUserId(record.userId)
+		local character = player and player.Character
+		local name = side == -1 and "Left" or "Right"
+		local shoulder = character and (character:FindFirstChild(name.."Shoulder", true) or character:FindFirstChild(name.." Shoulder", true))
+		local height = 6.8
+		if shoulder and shoulder:IsA("Motor6D") and shoulder.Part0 then
+			height = record.cf:PointToObjectSpace(shoulder.Part0.CFrame:PointToWorldSpace(shoulder.C0.Position)).Y-0.25
+		end
+		local start = record.cf:PointToObjectSpace(Punch.contact(record.cf, side, height))
+		start = Vector3.new(start.X, start.Y, start.Z-0.17)
 		local finish = start + Vector3.new(math.sin(i*2.7+hit)*(0.4+hit*0.35), math.cos(i*2.7)*(0.6+hit*0.4), 0)
 		local a, b = record.cf:PointToWorldSpace(start), record.cf:PointToWorldSpace(finish)
 		local part = self:part(record.folder, Vector3.new(0.025, 0.025, (a-b).Magnitude), CFrame.lookAt((a+b)/2, b), Color3.fromRGB(211, 251, 215), 7)
@@ -138,7 +149,7 @@ function Effects:stage(data)
 	record.phaseId += 1
 	record.data, record.expires = data, os.clock()+math.max(5, data.duration+2)
 	for _, kind in soundStages[data.phase] or {} do self:sound(record, kind) end
-	if data.phase == "Activate" or data.phase == "Reconstruct" then record.bubbles.Rate = 18; record.sparks:Emit(8)
+	if data.phase == "Activate" or data.phase == "Wake" then record.bubbles.Rate = 18; record.sparks:Emit(8)
 	elseif data.phase == "Drain" then
 		self:drips(record)
 		TweenService:Create(record.bubbles, TweenInfo.new(data.duration), {Rate = 0}):Play()

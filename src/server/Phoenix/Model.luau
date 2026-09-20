@@ -36,13 +36,13 @@ function Model.build(parent, index)
 	cylinder("Lower pressure assembly", 6.8, 0.7, Vector3.new(0, 2.05, 0))
 	cylinder("Upper pressure assembly", 6.8, 0.8, Vector3.new(0, 11.1, 0))
 	cylinder("Crown", 5.7, 0.4, Vector3.new(0, 11.7, 0), dark)
-	local glass = cylinder("TankGlass", 5.9, 8, Vector3.new(0, 6.5, 0), Color3.fromRGB(152, 201, 185), Enum.Material.Glass)
-	glass.Transparency, glass.CanCollide, glass.CanQuery, glass.CastShadow = 0.8, false, false, false
-	local dome = p("GlassDome", Vector3.new(5.9, 2.3, 5.9), Vector3.new(0, 10.35, 0), glass.Color, Enum.Material.Glass)
-	dome.Transparency, dome.CanCollide, dome.CanQuery, dome.CastShadow = 0.8, false, false, false
+	local glass = cylinder("TankGlass", 5.9, 8, Vector3.new(0, 6.5, 0), Color3.fromRGB(152, 201, 185), Enum.Material.SmoothPlastic)
+	glass.Transparency, glass.CanCollide, glass.CanQuery, glass.CastShadow = 0.88, false, false, false
+	local dome = p("GlassDome", Vector3.new(5.9, 2.3, 5.9), Vector3.new(0, 10.35, 0), glass.Color, Enum.Material.SmoothPlastic)
+	dome.Transparency, dome.CanCollide, dome.CanQuery, dome.CastShadow = 0.88, false, false, false
 	local sphere = Instance.new("SpecialMesh")
 	sphere.MeshType, sphere.Parent = Enum.MeshType.Sphere, dome
-	local fluid = cylinder("Fluid", 5.45, 0.08, Vector3.new(0, 2.55, 0), Config.Fluid, Enum.Material.Neon)
+	local fluid = cylinder("Fluid", 5.45, 0.08, Vector3.new(0, 2.55, 0), Config.Fluid, Enum.Material.SmoothPlastic)
 	fluid.Transparency, fluid.CanCollide, fluid.CanQuery, fluid.CastShadow = 0.65, false, false, false
 	local surface = cylinder("FluidSurface", 5.45, 0.06, Vector3.new(0, 10.15, 0), Color3.fromRGB(137, 239, 160), Enum.Material.Neon)
 	surface.Transparency, surface.CanCollide, surface.CanTouch, surface.CanQuery = 0.18, false, false, false

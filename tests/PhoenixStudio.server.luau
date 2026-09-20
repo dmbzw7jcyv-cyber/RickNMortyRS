@@ -30,7 +30,7 @@ local ok, failure = xpcall(function()
 		assert(char ~= old and char.Humanoid.Health > 0, "Replacement avatar missing/dead")
 		assert(not char.HumanoidRootPart.Anchored and char.Humanoid.WalkSpeed > 0, "Movement was not restored")
 		assert(not char:GetAttribute("PhoenixBusy"), "Busy flag leaked")
-		assert(phases.Transfer and phases.Reconstruct and phases.Exit, "Incomplete resurrection lifecycle")
+		assert(phases.Transfer and phases.Wake and phases.Exit, "Incomplete resurrection lifecycle")
 		if variation == "Normal" then assert(phases.Drain and phases.Open and not phases.Burst, "Wrong normal sequence") end
 		if variation == "Breakout" then assert(phases.Malfunction and phases.Pound and phases.Burst, "Wrong breakout sequence") end
 		assert(player.Backpack:FindFirstChild("Portal Gun") or char:FindFirstChild("Portal Gun"), "Portal Gun not restored")

@@ -82,10 +82,9 @@ function Service.start(remote, lab)
 				assert(state.body and state.body.character == char, "Phoenix body lock missing")
 				state.body.root.Anchored = true
 				Body.position(state.body, state.slot)
-				if not waitFor(state, current, 0.35) then return end
-				stage(player, state, "Reconstruct", Config.ReconstructionTime)
-				Body.reveal(state.body, Config.ReconstructionTime)
-				if not waitFor(state, current, Config.ReconstructionTime) then return end
+				-- Keep the reserve body visible while loading, then exchange it for the
+				-- living avatar without a reconstruction fade or extra cinematic stage.
+				Body.reveal(state.body, 0)
 				for _, step in Sequences[state.variation] do
 					if not current() then return end
 					stage(player, state, step.name, step.duration, step.hit)
