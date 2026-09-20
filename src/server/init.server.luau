@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 Players.CharacterAutoLoads = false -- Phoenix owns initial spawn and every death thereafter.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+require(script.AvatarStyle).start()
 local Config = require(ReplicatedStorage.Shared.Portal.Config)
 local remote = Instance.new("RemoteEvent")
 remote.Name = "PortalRemote"

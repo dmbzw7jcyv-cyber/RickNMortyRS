@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory() as folder:
     import xml.etree.ElementTree as ET
     place = ET.parse(output)
     names = [node.text for node in place.findall('.//Item/Properties/string[@name="Name"]')]
-    for required in ['Server', 'Client', 'Shared', 'Portal', 'Config', 'Service', 'Renderer', 'Transit', 'Gun', 'Phoenix', 'AvatarLoader', 'Body', 'Lab', 'Sequences', 'Motion', 'Storage', 'Punch']:
+    for required in ['Server', 'Client', 'Shared', 'Portal', 'Config', 'Service', 'Renderer', 'Transit', 'Gun', 'Phoenix', 'AvatarLoader', 'AvatarStyle', 'Body', 'Lab', 'Sequences', 'Motion', 'Storage', 'Punch']:
         assert required in names, f'Missing Rojo instance: {required}'
     print('PASS: Rojo place builds and contains expected script/module names')
 subprocess.run(['lune', 'run', 'tests/run.luau'], cwd=root, check=True)
@@ -24,3 +24,4 @@ subprocess.run(['lune', 'run', 'tests/run.luau'], cwd=root, check=True)
 subprocess.run(['lune', 'run', 'tests/phoenix.luau'], cwd=root, check=True)
 
 subprocess.run(['lune', 'run', 'tests/phoenix_pose.luau'], cwd=root, check=True)
+subprocess.run(['lune', 'run', 'tests/avatar_style.luau'], cwd=root, check=True)

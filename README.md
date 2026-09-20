@@ -112,6 +112,14 @@ The fluid is stylized procedural geometry and short-lived particles, not a fluid
 
 API references: [Camera screen rays](https://create.roblox.com/docs/reference/engine/classes/Camera#ScreenPointToRay), [touch input](https://create.roblox.com/docs/reference/engine/classes/UserInputService#TouchTapInWorld), [network ownership](https://create.roblox.com/docs/reference/engine/classes/BasePart#SetNetworkOwner).
 
+## Player appearance
+
+`src/server/AvatarStyle.luau` gives every spawned player a lightweight, reference-inspired scientist appearance: pale gray skin, cyan spiked hair, a drawn face, cyan shirt, white lab coat, brown pants and dark shoes. It uses built-in Parts, WedgeParts, WeldConstraints and one SurfaceGui, so it requires no catalog IDs, uploaded meshes, clothing textures or animation assets. Existing avatar accessories and classic clothing are removed when the style is applied.
+
+The server applies the style on CharacterAdded and again after CharacterAppearanceLoaded. Phoenix replacements therefore receive the same appearance, and the idle storage copy includes it. Reapplying replaces the old `RickStyle` folder and face instead of stacking duplicates. All cosmetic Parts are massless, non-colliding, non-touching, excluded from queries, and marked as invalid portal surfaces. R6 adds small hand and shoe covers; R15 uses its existing hand and foot pieces. The R6 style stays under 24 cosmetic Parts per visible avatar.
+
+This is a lightweight Roblox-compatible interpretation of the supplied image rather than a custom skinned character mesh. Inspect R6 and R15 in Studio for coat/hair proportions, especially with nonstandard avatar scaling. Edit the color constants and geometry near the top of `AvatarStyle.luau` to tune the look.
+
 ## Phoenix Protocol
 
 Phoenix adds a real death-triggered cloning lifecycle beside the portal chamber. The reference informs the tall cylindrical storage tubes, translucent mint-green glass, rounded top, heavy mechanical rings and exposed plumbing. Five tubes are built initially. Walk around the west end of the portal-test walls and along the short walkway into the lab (roughly world Z = 90–150), or place linked portals on its large walls/floor.
@@ -184,7 +192,7 @@ Default-sized R6/R15 avatars are the target. Very large avatars, custom characte
 
 ### Validation status and Studio checklist
 
-**Roblox Studio is not installed/accessible in the implementation environment. None of the live Studio tests below has been claimed as executed.** Automated validation passes all 32 runtime Luau files, the Rojo build/mapped modules, 64 existing portal checks, 49 Phoenix lifecycle/geometry checks and 13 pose integration checks. Phoenix tests exercise production policy/controller code with a deterministic scheduler and service doubles, plus reflection-backed chamber construction, body restoration and avatar-loader timeout/fallback. They cover forced/random choices, simultaneous deaths, repeated/interrupting deaths, sequence exceptions, watchdog recovery, chamber reuse and ignored client completion/death claims. These tests cannot establish actual Roblox replication, character-loading order, touch physics, camera behavior or visual quality.
+**Roblox Studio is not installed/accessible in the implementation environment. None of the live Studio tests below has been claimed as executed.** Automated validation passes all 33 runtime Luau files, the Rojo build/mapped modules, 64 existing portal checks, 49 Phoenix lifecycle/geometry checks, 13 pose integration checks and 60 avatar-style checks. Phoenix tests exercise production policy/controller code with a deterministic scheduler and service doubles, plus reflection-backed chamber construction, body restoration and avatar-loader timeout/fallback. Avatar checks cover R6/R15 styling, cleanup, inert geometry and the cosmetic-part budget. These tests cannot establish actual Roblox replication, character-loading order, touch physics, camera behavior or visual quality.
 
 Run the existing offline command, `python tests/validate.py`, with the documented tools on PATH. A separate **manual-only** Studio runner is supplied at `tests/PhoenixStudio.server.luau`: during Play, paste it into a temporary Script in ServerScriptService. It intentionally kills the first test player three times to check forced Normal, forced Breakout and Random server lifecycles, movement release and Portal Gun restoration. Delete the temporary Script afterward. It is outside the Rojo tree and is not shipped with the game.
 
