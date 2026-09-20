@@ -36,7 +36,7 @@ A swept/predictive front-side capture test triggers before the supporting solid 
 
 ## Test chamber
 
-`Chamber.luau` independently generates a laboratory around the starter spawn: opposing walls, a perpendicular wall, a freestanding face, large floor, raised deck, illuminated guide strips, stairs, and a 34-stud-high drop platform. Jump from the front of the high platform toward the lighter landing pad to test a floor-to-wall momentum launch. Place the destination wall portal before the jump.
+`Chamber.luau` independently generates a laboratory around the starter spawn: opposing walls, a perpendicular wall, a freestanding face, large floor, raised deck, matte gray guide strips, stairs, and a 34-stud-high drop platform. Jump from the front of the high platform toward the lighter landing pad to test a floor-to-wall momentum launch. Place the destination wall portal before the jump.
 
 Set `BuildTestChamber = false` in `Config.luau` when integrating into your own level. The original Rojo baseplate remains intact beneath the chamber.
 
@@ -65,15 +65,17 @@ The starter `src/shared/Hello.luau` is retained but unused. Tests are outside th
 
 ## Visuals and performance
 
-The gun silhouette uses a gray housing, inset sides, curved-looking handle, red switch, thumb dial, fasteners, capped translucent green chamber, neon core and bubbles. Local grip motion supplies recoil without external animation IDs.
+The gun silhouette uses a gray housing, inset sides, curved-looking handle, red switch, thumb dial, fasteners, capped translucent green chamber, neon core, suspended green filaments, cooling slots, a rounded handle heel and bubbles. Local grip motion supplies recoil without external animation IDs.
 
-Each visible portal has 68 non-colliding, non-queryable Parts: a dark oval, 28 irregular rim segments, and 39 moving green ribbon segments. Contrast comes from matte interior greens and selective neon lime highlights. A 30 Hz animation loop avoids independent tweens/connections per segment. Only the nearest 12 portals within 260 studs are materialized; culled portals remain authoritative and reappear when approached. This is a visual budget, not a limit on server portal ownership.
+The chamber uses subdued gray walls, charcoal floors, matte guide strips, neutral signage and a slate spawn pad; none of its generated surfaces use Neon. Portal colors stay within dark, saturated and bright greens, including failed-shot effects (darker green, smaller burst). A/B are distinguished by a small letter, subtly different illumination and opposite swirl directions.
+
+Each visible portal has 68 non-colliding, non-queryable Parts: a dark oval, 28 irregular rim segments, and 39 moving green ribbon segments. Adjacent rim and spiral samples overlap into connected ribbons, with drifting green highlights, a pulsing dark center and an asymmetric closing squeeze. Contrast comes from matte interior greens and selective green neon highlights. Four low-rate green mist emitters add wisps (six particles/second per visible portal, lifetimes below one second); emission stops on collapse and destruction/culling cleans up the emitters. A 30 Hz animation loop avoids independent tweens/connections per segment. Only the nearest 12 portals within 260 studs are materialized; culled portals remain authoritative and reappear when approached. This is a visual budget, not a limit on server portal ownership.
 
 Opening spreads the shape rapidly with an outward splash. Replacement collapses the old oval over 0.55 seconds, wobbles the rim and releases two waves of fluid. Client-only ballistic droplets raycast against geometry, spread into flattened splashes on contact, darken, and fade. At most 90 moving droplets and 130 temporary effect Parts exist per client; short Debris lifetimes also clean up shots and splashes. Active portal Parts are separate from this transient budget. Effects do not participate in physics or gameplay raycasts. A transit flash lasts 0.18 seconds at low opacity.
 
 ### Sounds/assets you supply
 
-No external visual assets are required. Particles use the built-in Roblox sparkle texture. In `Config.Sounds`, replace the empty strings for `Fire`, `Impact`, `Fail`, `Open`, `Close`, `Transit`, and `Hum` with `rbxassetid://...` sound IDs permitted for your experience. **Audio is silent until these IDs are supplied.** `Hum` loops while your gun is equipped; other sounds play positionally. No unverified/free-model asset IDs are embedded.
+No external visual assets are required. Particles use the built-in Roblox sparkle and smoke textures. In `Config.Sounds`, replace the empty strings for `Fire`, `Impact`, `Fail`, `Open`, `Close`, `Transit`, and `Hum` with `rbxassetid://...` sound IDs permitted for your experience. **Audio is silent until these IDs are supplied.** `Hum` loops while your gun is equipped; other sounds play positionally. No unverified/free-model asset IDs are embedded.
 
 ## Validation and required manual tests
 
@@ -95,6 +97,14 @@ The build validator compiles every runtime Luau file, builds a temporary `.rbxlx
 - Test two players, joining after portals exist, rapid replacements, respawning mid-shot, disconnecting, and simulated network latency. Confirm each player's sequence remains separate and both clients see the same active pair.
 - Replace portals repeatedly for several minutes. Inspect `Workspace.PortalClientEffects` on the client; short-lived drops/splashes should disappear and object counts should settle. Profile on the target mobile device, especially with multiple nearby players.
 - Supply your sound IDs and verify permissions, volume, hum cleanup and failed-shot audio.
+
+## If you still see rainbow outlines in Studio
+
+The repository contains no `Highlight`, `SelectionBox`, wireframe adornment, or rainbow-color generator. The only former chamber neon accents were two green guide strips; these are now matte gray. Multicolored outlines around every object may therefore be an editor/debug visualization or an effect supplied by a plugin or by other objects already in your Studio place. This cannot be diagnosed conclusively from the repository alone.
+
+Stop Play and clear the current Studio selection. In **Studio Settings → Physics**, check **AreAssembliesShown** first: Roblox documents this option as assigning each physics assembly a different outline color, which closely matches the reported symptom. Turn it off if enabled. Also check **AreSolverIslandsShown** (Physics) and **ShowBoundingBoxes** (Rendering), plus any enabled wireframe/collision overlays. Disable any active overlays and check again in Play; compare with the normal Roblox client if necessary. Also check for unrelated Highlights/SelectionBoxes already in the place. See the official [AreAssembliesShown reference](https://create.roblox.com/docs/reference/engine/classes/PhysicsSettings#AreAssembliesShown). Game scripts deliberately do not delete unrelated objects or attempt to change your editor settings. After pulling this change, stop and restart Play so the chamber and Tool are regenerated.
+
+This visual pass leaves the placement, per-player A/B state, teleportation, targeting, shared math, RemoteEvent protocol and Rojo mappings unchanged. Existing 61 offline checks and the Rojo/Luau build pass; live Studio appearance still needs inspection.
 
 ## Known limitations
 

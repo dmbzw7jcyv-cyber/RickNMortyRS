@@ -25,6 +25,7 @@ function Gun.create()
 	local gray = Color3.fromRGB(173, 178, 176)
 	local dark = Color3.fromRGB(49, 54, 52)
 	part("Handle", Vector3.new(0.62, 0.42, 1.5), CFrame.new(0, -0.15, 0.75) * CFrame.Angles(-0.2, 0, 0), gray)
+	part("RoundedHeel", Vector3.new(0.64, 0.43, 0.55), CFrame.new(0, -0.29, 1.43), gray, nil, Enum.PartType.Ball)
 	part("Housing", Vector3.new(1.15, 0.62, 2.4), CFrame.new(0, 0.1, -0.75), gray)
 	part("InsetSide", Vector3.new(1.18, 0.34, 1.95), CFrame.new(0, 0.02, -0.82), Color3.fromRGB(116, 121, 118))
 	part("TopPlate", Vector3.new(1.05, 0.07, 2.28), CFrame.new(0, 0.445, -0.75), Color3.fromRGB(211, 214, 206))
@@ -37,6 +38,16 @@ function Gun.create()
 	local glass = part("ChamberGlass", Vector3.new(1.22, 0.79, 0.79), CFrame.new(0, 1.2, -1.16) * CFrame.Angles(0, 0, math.pi/2), Config.Lime, Enum.Material.Glass, Enum.PartType.Cylinder)
 	glass.Transparency = 0.55
 	part("ChamberCap", Vector3.new(0.74, 0.35, 0.74), CFrame.new(0, 1.85, -1.16), Config.Lime, Enum.Material.Glass, Enum.PartType.Ball).Transparency = 0.4
+	-- Thin green filaments inside the glass suggest suspended unstable fluid.
+	for i = 1, 7 do
+		local angle = i * 0.85
+		part("ChamberFilament", Vector3.new(0.085, 0.24, 0.085),
+			CFrame.new(math.cos(angle)*0.24, 0.66+i*0.13, -1.16+math.sin(angle)*0.24) * CFrame.Angles(0, 0, math.sin(angle)*0.3),
+			Config.Lime, Enum.Material.Neon, Enum.PartType.Ball)
+	end
+	for i = 1, 3 do
+		part("CoolingSlot", Vector3.new(0.025, 0.13, 0.2), CFrame.new(-0.601, 0.05, -0.7-i*0.3), dark)
+	end
 	local core = part("EnergyCore", Vector3.new(0.43, 1.05, 0.43), CFrame.new(0, 1.2, -1.16), Config.Green, Enum.Material.Neon, Enum.PartType.Ball)
 	local light = Instance.new("PointLight")
 	light.Color, light.Range, light.Brightness, light.Parent = Config.Green, 7, 0.8, core

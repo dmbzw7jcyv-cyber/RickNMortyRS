@@ -39,7 +39,7 @@ function Effects:sound(kind, position)
 end
 function Effects:burst(position, valid, count)
 	if not self:near(position) then return end
-	local color = valid and Config.Lime or Color3.fromRGB(255, 155, 45)
+	local color = valid and Config.Lime or Config.Dark
 	local orb = self:temporary(color, Vector3.one * 0.4, CFrame.new(position), 0.28)
 	if orb then TweenService:Create(orb, TweenInfo.new(0.26), {Size = Vector3.one * (valid and 3 or 1.7), Transparency = 1}):Play() end
 	for _ = 1, count or 7 do

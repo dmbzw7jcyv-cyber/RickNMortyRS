@@ -4,7 +4,7 @@ return table.freeze({
 	ProjectileSpeed = 210, OpenTime = 0.28, CloseTime = 0.55,
 	ExitLock = 0.65, MaxTransitSpeed = 240, EffectDistance = 260,
 	MaxVisiblePortals = 12, MaxDroplets = 90, MaxTransientParts = 130, BuildTestChamber = true,
-	Green = Color3.fromRGB(121, 255, 12), Lime = Color3.fromRGB(220, 255, 69),
-	Dark = Color3.fromRGB(13, 112, 15),
+	Green = Color3.fromRGB(80, 240, 20), Lime = Color3.fromRGB(155, 255, 70),
+	Dark = Color3.fromRGB(9, 94, 15),
 	Sounds = { Fire = "", Impact = "", Fail = "", Open = "", Close = "", Transit = "", Hum = "" },
 })
