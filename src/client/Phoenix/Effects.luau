@@ -2,13 +2,14 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 local Config = require(game:GetService("ReplicatedStorage").Shared.Phoenix.Config)
+local Motion = require(game:GetService("ReplicatedStorage").Shared.Phoenix.Motion)
 local Effects = {}
 Effects.__index = Effects
 local soundStages = {
 	Transfer = {"Transfer"}, Activate = {"Startup", "ElectricalActivation", "Pump"},
 	Reconstruct = {"Bubbles"}, Wake = {"Pump"}, Pump = {"Pump"}, Drain = {"Drain"},
 	Unlock = {"Locks"}, Open = {"Open", "Steam"}, Malfunction = {"Malfunction"},
-	Pound = {"HitGlass", "CrackGlass", "Sparks"}, Burst = {"BreakGlass", "LiquidBurst", "Sparks"},
+	Burst = {"BreakGlass", "LiquidBurst", "Sparks"},
 	Cooldown = {"Cooldown"}, Damaged = {"Sparks"},
 }
 function Effects.new()
@@ -44,7 +45,15 @@ function Effects:sound(record, name, looping)
 end
 function Effects:clear(id)
 	local record = self.records[id]
-	if record then record.folder:Destroy(); self.records[id] = nil end
+	if record then
+		if record.glassCF then
+			local lab = workspace:FindFirstChild("Phoenix Laboratory")
+			local chamber = lab and lab:FindFirstChild("Phoenix Chamber " .. id)
+			local glass = chamber and chamber:FindFirstChild("TankGlass")
+			if glass then glass.CFrame = record.glassCF end
+		end
+		record.folder:Destroy(); self.records[id] = nil
+	end
 end
 function Effects:record(data)
 	local old = self.records[data.chamberId]
@@ -137,12 +146,17 @@ function Effects:stage(data)
 		record.steam:Emit(12)
 	elseif data.phase == "Malfunction" then
 		record.alarm = self:sound(record, "Alarm", true)
-	elseif data.phase == "Pound" then
+	elseif data.phase == "Pound" and data.hit ~= 3 then
 		local phaseId = record.phaseId
-		task.delay(data.duration*0.45, function()
-			if record.folder.Parent and record.phaseId == phaseId then self:crack(record, data.hit or 1); record.sparks:Emit(6) end
+		task.delay(math.max(0, data.startedAt+data.duration*Motion.Contact-workspace:GetServerTimeNow()), function()
+			if record.folder.Parent and record.phaseId == phaseId then
+				self:crack(record, data.hit or 1); record.sparks:Emit(6)
+				self:sound(record, "HitGlass"); self:sound(record, "CrackGlass")
+				record.impactAt = workspace:GetServerTimeNow()
+			end
 		end)
 	elseif data.phase == "Burst" then
+		self:sound(record, "HitGlass")
 		record.bubbles.Rate = 0
 		record.bubbles:Emit(28)
 		record.sparks:Emit(16); record.steam:Emit(12)
@@ -157,6 +171,16 @@ function Effects:step()
 	for id, record in self.records do
 		if os.clock() > record.expires then self:clear(id); continue end
 		local data = record.data
+		local lab = workspace:FindFirstChild("Phoenix Laboratory")
+		local chamber = lab and lab:FindFirstChild("Phoenix Chamber " .. id)
+		local glass = chamber and chamber:FindFirstChild("TankGlass")
+		if glass and record.impactAt then
+			local elapsed = workspace:GetServerTimeNow()-record.impactAt
+			if not record.glassCF then record.glassCF = glass.CFrame end
+			if elapsed < 0.22 and data.phase == "Pound" then
+				glass.CFrame = record.glassCF*CFrame.new(math.sin(elapsed*65)*0.035*(1-elapsed/0.22), 0, -math.sin(elapsed/0.22*math.pi)*0.09)
+			else glass.CFrame = record.glassCF; record.impactAt, record.glassCF = nil, nil end
+		end
 		if data and (data.phase == "Malfunction" or data.phase == "Pound") then
 			local lab = workspace:FindFirstChild("Phoenix Laboratory")
 			local model = lab and lab:FindFirstChild("Phoenix Chamber " .. id)

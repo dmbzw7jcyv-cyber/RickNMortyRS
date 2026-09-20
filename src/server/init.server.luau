@@ -13,6 +13,7 @@ phoenixRemote.Name, phoenixRemote.Parent = "PhoenixRemote", ReplicatedStorage
 local phoenixOK, phoenixError = xpcall(function()
 	local lab = require(script.Phoenix.Lab).build()
 	require(script.Phoenix.Service).start(phoenixRemote, lab)
+	require(script.Phoenix.Storage).start(lab)
 end, debug.traceback)
 if not phoenixOK then
 	warn("Phoenix startup failed; restoring Roblox automatic respawn", phoenixError)

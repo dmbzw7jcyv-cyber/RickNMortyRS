@@ -141,7 +141,7 @@ ExitWeights = {Normal = 1, Breakout = 1}, -- 50/50; e.g. 3 and 1 gives 75/25
 Debug = {ForceExitVariation = "Random"}, -- nil/"Random", "Normal", "Breakout"
 ```
 
-The debug option only selects the exit. Death, transfer, avatar loading and reconstruction always run first. The normal sequence lasts roughly five seconds plus avatar-loading time; breakout is roughly six seconds plus loading. Normal drains the fluid with a changing cylinder height/center, reduces bubbles, slides drips down the glass, unlocks clamps, lifts the glass and releases steam. Breakout starts with a successful wake-up, then pump/lock failure, three procedural glass strikes with accumulating cracks, a glass/fluid burst and a stumble out. It leaves lifted/bent locks, missing glass and an error display briefly before repair. The two exit timelines live in `Sequences.luau`, separate from lifecycle logic.
+The debug option only selects the exit. Death, transfer, avatar loading and reconstruction always run first. The normal sequence lasts roughly five seconds plus avatar-loading time; breakout is roughly seven seconds plus loading. Normal drains the fluid with a changing cylinder height/center, reduces bubbles, slides drips down the glass, unlocks clamps, lifts the glass and releases steam. Breakout starts with a successful wake-up, then pump/lock failure, three procedural glass strikes with accumulating cracks, a glass/fluid burst and a stumble out. It leaves lifted/bent locks, missing glass and an error display briefly before repair. The two exit timelines live in `Sequences.luau`, separate from lifecycle logic.
 
 ### Phoenix modules
 
@@ -149,6 +149,8 @@ The debug option only selects the exit. Death, transfer, avatar loading and reco
 | --- | --- |
 | `src/shared/Phoenix/Config.luau` | Probabilities, debug mode, timing, colors, effect limits and audio IDs |
 | `src/shared/Phoenix/Policy.luau` | Variation selection, chamber allocation and generation validity |
+| `src/shared/Phoenix/Motion.luau` | Continuous float/strike curves and shared impact timing |
+| `src/server/Phoenix/Storage.luau` | Safe cosmetic reserve-avatar bodies in assigned idle tanks |
 | `src/shared/Phoenix/Sequences.luau` | Modular Normal and Breakout stage lists |
 | `src/server/Phoenix/Service.luau` | Death detection, generation cancellation, spawning, lifecycle and watchdog |
 | `src/server/Phoenix/AvatarLoader.luau` | Bounded avatar loading, last-good avatar cache and emergency rig |
@@ -175,13 +177,13 @@ Only Alarm loops, and it is removed shortly after escape or when its effect reco
 
 ### Performance and limitations
 
-Chamber structure and mechanical motion are replicated by the server. Cosmetic cracks, splashes, glass fragments, sparks and steam are client-only. Debris is anchored, non-colliding, non-touching and non-queryable; fluid is a visual approximation. There are at most 100 temporary cosmetic Parts per client, with short cleanup timers. A burst requests eight harmless glass fragments and fourteen droplets. Idle pump leaks have a rate of only 0.5 particles/second per chamber. Distant sequences beyond 230 studs skip cosmetic effects for observers. The client shares one update connection for Phoenix presentation, and the server watchdog checks twice a second rather than every frame.
+Chamber structure and mechanical motion are replicated by the server. Cosmetic cracks, splashes, glass fragments, sparks and steam are client-only. Debris is anchored, non-colliding, non-touching and non-queryable; fluid is a visual approximation. There are at most 100 temporary cosmetic Parts per client, with short cleanup timers. A burst requests eight harmless glass fragments and fourteen droplets. Idle pump leaks have a rate of only 0.5 particles/second per chamber. Distant sequences beyond 230 studs skip cosmetic effects for observers. The client uses one camera/effects update and one PreSimulation pose update for Phoenix presentation, and the server watchdog checks twice a second rather than every frame.
 
 Default-sized R6/R15 avatars are the target. Very large avatars, custom character scripts, custom movement/camera controllers, custom rigs and StreamingEnabled require integration testing. The normal exit is guided across the threshold before control returns; breakout uses a procedural lean/stumble, not a full ragdoll. Avatar service failures can show an emergency body. Tube construction is an approximation of the reference using built-in Roblox geometry. Live lighting, glass transparency and limb angles still require visual tuning in Studio.
 
 ### Validation status and Studio checklist
 
-**Roblox Studio is not installed/accessible in the implementation environment. None of the live Studio tests below has been claimed as executed.** Automated validation passes all 29 runtime Luau files, the Rojo build/mapped modules, 64 existing portal checks and 35 Phoenix checks. Phoenix tests exercise production policy/controller code with a deterministic scheduler and service doubles, plus reflection-backed chamber construction, body restoration and avatar-loader timeout/fallback. They cover forced/random choices, simultaneous deaths, repeated/interrupting deaths, sequence exceptions, watchdog recovery, chamber reuse and ignored client completion/death claims. These tests cannot establish actual Roblox replication, character-loading order, touch physics, camera behavior or visual quality.
+**Roblox Studio is not installed/accessible in the implementation environment. None of the live Studio tests below has been claimed as executed.** Automated validation passes all 31 runtime Luau files, the Rojo build/mapped modules, 64 existing portal checks and 44 Phoenix checks. Phoenix tests exercise production policy/controller code with a deterministic scheduler and service doubles, plus reflection-backed chamber construction, body restoration and avatar-loader timeout/fallback. They cover forced/random choices, simultaneous deaths, repeated/interrupting deaths, sequence exceptions, watchdog recovery, chamber reuse and ignored client completion/death claims. These tests cannot establish actual Roblox replication, character-loading order, touch physics, camera behavior or visual quality.
 
 Run the existing offline command, `python tests/validate.py`, with the documented tools on PATH. A separate **manual-only** Studio runner is supplied at `tests/PhoenixStudio.server.luau`: during Play, paste it into a temporary Script in ServerScriptService. It intentionally kills the first test player three times to check forced Normal, forced Breakout and Random server lifecycles, movement release and Portal Gun restoration. Delete the temporary Script afterward. It is outside the Rojo tree and is not shipped with the game.
 
@@ -202,3 +204,13 @@ Before publishing, verify all of the following in Studio:
 | 16: portal preservation | Place A/B, traverse both ways, test momentum, then repeat after resurrection and portal into/out of the lab |
 
 Also inspect portrait/landscape mobile UI, default R6 and R15 arm poses, character accessories, low graphics settings and artificial network latency. Test each configured sound's asset permissions once IDs have been supplied.
+
+### Floating bodies, fluid and breakout polish
+
+Assigned idle tanks now contain a cosmetic copy of their owner's avatar, floating above the tank floor with slow bobbing, relaxed legs and slight sway. Unassigned tanks contain fluid but no player body. The copy is removed as soon as the tank sequence starts, so the actual reconstructed character takes its place; a new reserve body appears after repair/cooldown (within one second). Stored bodies have no scripts or tools, cannot collide or trigger touch events, and are excluded from portal raycasts. Death detection and respawn ownership are unchanged.
+
+Tanks reset **full**, with a stronger green liquid volume, a visible liquid surface, and seven slow rising bubbles per second. Both the surface and liquid level lower during normal drainage; breakout empties them with the existing splash burst. Live characters float while sealed inside the chamber. Cosmetic copies are animated only within the existing effect distance.
+
+Breakout now uses three distinct wind-up/extension/contact/recoil strikes. The last strike stays extended until the glass fails. Arm, torso and leg poses blend continuously between phases; PreSimulation applies poses after the Animator to avoid animation fighting. First/second glass jolts, cracks and hit sounds share the contact timestamp; the final impact accompanies shattering. R6 shoulder rotations use torso axes as well as R15, rather than assuming their joint axes match. No uploaded animation is required.
+
+Additional offline checks cover full/empty fluid, storage-body sanitization/cleanup and strike continuity. **Studio visual testing remains required:** force Breakout, inspect R6 and R15 hands meeting the glass, confirm liquid visibility on low/high graphics, verify reserve bodies disappear during reconstruction and return after repair, and check movement/camera restoration. Large/custom avatars can require pose or tank-size tuning.

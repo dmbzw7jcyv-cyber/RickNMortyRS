@@ -44,6 +44,16 @@ function Model.build(parent, index)
 	sphere.MeshType, sphere.Parent = Enum.MeshType.Sphere, dome
 	local fluid = cylinder("Fluid", 5.45, 0.08, Vector3.new(0, 2.55, 0), Config.Fluid, Enum.Material.Neon)
 	fluid.Transparency, fluid.CanCollide, fluid.CanQuery, fluid.CastShadow = 0.65, false, false, false
+	local surface = cylinder("FluidSurface", 5.45, 0.06, Vector3.new(0, 10.15, 0), Color3.fromRGB(137, 239, 160), Enum.Material.Neon)
+	surface.Transparency, surface.CanCollide, surface.CanTouch, surface.CanQuery = 0.18, false, false, false
+	local bubbleAnchor = Instance.new("Attachment", model.Foundation)
+	bubbleAnchor.CFrame = model.Foundation.CFrame:ToObjectSpace(cf*CFrame.new(0, 3, 0))
+	local bubbles = Instance.new("ParticleEmitter")
+	bubbles.Name, bubbles.Texture = "Storage bubbles", "rbxasset://textures/particles/sparkles_main.dds"
+	bubbles.Color, bubbles.Size = ColorSequence.new(Color3.fromRGB(188, 255, 211)), NumberSequence.new(0.09, 0.04)
+	bubbles.Transparency, bubbles.LightEmission = NumberSequence.new(0.25, 1), 0.35
+	bubbles.Lifetime, bubbles.Speed, bubbles.SpreadAngle = NumberRange.new(2, 3), NumberRange.new(2, 2.6), Vector2.new(12, 12)
+	bubbles.Rate, bubbles.Parent = 7, bubbleAnchor
 	local light = Instance.new("PointLight")
 	light.Color, light.Range, light.Brightness, light.Parent = Config.Green, 13, 0.3, fluid
 	local locks = {}
@@ -90,6 +100,6 @@ function Model.build(parent, index)
 	model.Parent = parent
 	return {id = index, model = model, cf = cf, fluid = fluid, light = light, glass = glass, dome = dome,
 		glassCF = glass.CFrame, domeCF = dome.CFrame, locks = locks, status = status, lamp = lamp, spawn = spawn,
-		tweens = {}, revision = 0, owner = nil, floorY = 2.55}
+		surface = surface, bubbles = bubbles, tweens = {}, revision = 0, owner = nil, floorY = 2.55}
 end
 return Model

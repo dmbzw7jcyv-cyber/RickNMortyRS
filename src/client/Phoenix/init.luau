@@ -12,7 +12,7 @@ function Phoenix.start()
 		local ok, failure = xpcall(callback, debug.traceback)
 		if not ok then
 			camera:restore()
-			for userId in pose.actors do pose:clear(userId) end
+			pose:destroy()
 			for id in effects.records do effects:clear(id) end
 			if not reported then warn("Phoenix client recovered from presentation error", failure); reported = true end
 		end
@@ -24,9 +24,10 @@ function Phoenix.start()
 			elseif action == "Reset" then effects:clear(data.chamberId) end
 		end)
 	end)
-	RunService.RenderStepped:Connect(function(dt) protect(function() camera:step(dt); pose:step(); effects:step() end) end)
+	RunService.RenderStepped:Connect(function(dt) protect(function() camera:step(dt); effects:step() end) end)
+	RunService.PreSimulation:Connect(function(dt) protect(function() pose:step(dt) end) end)
 	Players.PlayerRemoving:Connect(function(player) pose:clear(player.UserId) end)
-	script.Destroying:Connect(function() camera:restore(); for userId in pose.actors do pose:clear(userId) end end)
+	script.Destroying:Connect(function() camera:restore(); pose:destroy() end)
 	remote:FireServer("Sync") -- Only read-only sync exists; clients cannot finish or request resurrection.
 end
 return Phoenix

@@ -25,7 +25,7 @@ end
 function Body.position(state, slot)
 	local humanoid, root = state.humanoid, state.root
 	local legs = humanoid.RigType == Enum.HumanoidRigType.R6 and 2 or humanoid.HipHeight
-	local cf = slot.cf*CFrame.new(0, slot.floorY+legs+root.Size.Y/2+0.1, 0)
+	local cf = slot.cf*CFrame.new(0, slot.floorY+legs+root.Size.Y/2+0.65, 0)
 	state.character:PivotTo(cf * root.CFrame:Inverse() * state.character:GetPivot())
 	root.AssemblyLinearVelocity, root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
 end

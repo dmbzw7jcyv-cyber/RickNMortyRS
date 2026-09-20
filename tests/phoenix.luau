@@ -2,7 +2,7 @@
 -- This checks lifecycle decisions, NOT Roblox engine spawning, physics, animation or rendering.
 local fs, luau, r = require('@lune/fs'), require('@lune/luau'), require('@lune/roblox')
 local function loadModule(path, extra)
-	local env = {Vector3 = r.Vector3, CFrame = r.CFrame, Color3 = r.Color3, Enum = r.Enum, Instance = r.Instance,
+	local env = {Vector2 = r.Vector2, Vector3 = r.Vector3, CFrame = r.CFrame, Color3 = r.Color3, Enum = r.Enum, Instance = r.Instance,
 		UDim2 = r.UDim2, ColorSequence = r.ColorSequence, NumberSequence = r.NumberSequence, NumberRange = r.NumberRange}
 	for k, v in extra or {} do env[k] = v end
 	return luau.load(fs.readFile(path), {debugName = path, environment = env})()
@@ -258,4 +258,35 @@ local stillCurrent = true
 tasks.spawn(function() result = Loader.load(stalledPlayer,cancelledState,{LoadTimeout=0.2},function() return stillCurrent end,r.CFrame.new()) end)
 advance(0.05); stillCurrent = false; advance(0.2)
 check(result == nil, 'superseded load generation does not publish a fallback')
+-- Presentation regression checks: fluid reset/drain, reserve body safety and strike timing.
+local realChamber = loadModule('src/server/Phoenix/Chamber.luau', {
+ game = {GetService = function(_, service)
+  if service == 'TweenService' then return tweenService end
+  return {Shared={Phoenix={Config=config}}}
+ end}, require=function(v) return v end, TweenInfo={new=function() return {} end},
+})
+realChamber.reset(chamberModel)
+check(chamberModel.fluid.Size.X > 7 and chamberModel.fluid.Transparency < 0.5 and chamberModel.bubbles.Rate > 0, 'standby tank stays visibly filled and bubbling')
+realChamber.fluid(chamberModel, 0, 1)
+check(chamberModel.fluid.Size.X < 0.1 and chamberModel.surface.Transparency == 1 and chamberModel.bubbles.Rate == 0, 'drain lowers fluid and waterline and stops bubbles')
+realChamber.reset(chamberModel)
+check(chamberModel.surface.Transparency < 0.3, 'repair restores visible waterline')
+local motion = loadModule('src/shared/Phoenix/Motion.luau')
+check(motion.strike(0.3) < 0 and motion.strike(motion.Contact) == 1 and motion.strike(1) == 0, 'strike has wind-up, glass contact, recoil')
+local final = motion.sample('Pound',1,0,3,'Breakout')
+local burst = motion.sample('Burst',0,0,nil,'Breakout')
+check(final.forward == burst.forward and final.shoulder == burst.shoulder, 'last fist remains against glass at shatter boundary')
+local left = motion.sample('Pound',1,10,1,'Breakout')
+local right = motion.sample('Pound',0,10,2,'Breakout')
+check(left.shoulder == right.shoulder and left.bob == right.bob, 'consecutive strikes share a continuous resting pose and float clock')
+r.implementMethod('Model', 'GetPivot', function(model) return model:FindFirstChild('HumanoidRootPart').CFrame end)
+local storage = loadModule('src/server/Phoenix/Storage.luau', {game={GetService=function() return {} end}})
+local unsafe = r.Instance.new('Script'); unsafe.Parent = rig
+local tool = r.Instance.new('Tool'); tool.Parent = rig
+storage.create(chamberModel, rig)
+local copy = chamberModel.storedBody
+check(copy and copy:FindFirstChildOfClass('Script') == nil and copy:FindFirstChildOfClass('Tool') == nil, 'stored avatar strips executable scripts and tools')
+check(copy.HumanoidRootPart.Anchored and not copy.Head.CanTouch and not copy.Head.CanQuery and rig.Archivable == false, 'stored avatar cannot collide, trigger death pad, or intercept portal rays')
+storage.clear(chamberModel)
+check(chamberModel.storedBody == nil and copy.Parent == nil, 'stored body cleanup removes cosmetic copy')
 print(string.format('\n%d Phoenix checks passed; live Studio engine checks remain required.', passed))
