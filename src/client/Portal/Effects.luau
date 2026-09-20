@@ -13,7 +13,12 @@ function Effects:near(position)
 end
 function Effects.part(parent, color, size, cf, material)
 	local p = Instance.new("Part")
-	p.Name, p.Shape = "Portal energy", Enum.PartType.Ball
+	p.Name = "Portal energy"
+	-- Ball Parts stay spherical at their smallest dimension. A Sphere SpecialMesh
+	-- follows all three Part.Size axes, including a thin oval or flowing ribbon.
+	local mesh = Instance.new("SpecialMesh")
+	mesh.Name, mesh.MeshType, mesh.Scale = "FluidShape", Enum.MeshType.Sphere, Vector3.one
+	mesh.Parent = p
 	p.Anchored, p.CanCollide, p.CanTouch, p.CanQuery, p.CastShadow = true, false, false, false, false
 	p.Color, p.Material, p.Size, p.CFrame = color, material or Enum.Material.Neon, size, cf
 	p.Parent = parent

@@ -199,7 +199,21 @@ check(#effectFolder:GetChildren() == Config.MaxVisiblePortals, 'visible portal g
 local portalModel = renderer.portals['1']
 local partCount = 0
 for _, part in portalModel.model:GetChildren() do if part:IsA('BasePart') then partCount += 1 end end
-check(partCount == 68, 'portal geometry matches documented part budget')
+check(partCount == 78, 'portal geometry matches documented part budget')
+local stretchable = true
+for _, part in portalModel.model:GetChildren() do
+	if part:IsA('BasePart') then
+		local mesh = part:FindFirstChild('FluidShape')
+		stretchable = stretchable and part.Shape ~= roblox.Enum.PartType.Ball
+			and mesh ~= nil and mesh.MeshType == roblox.Enum.MeshType.Sphere and mesh.Scale == Vector3.one
+	end
+end
+check(stretchable, 'every thin portal surface uses a stretchable sphere mesh, not a Ball Part')
+check(portalModel.core.Size.X > 6 and portalModel.core.Size.Y > 9 and portalModel.core.Transparency == 0,
+	'open portal has a full-size opaque green backing')
+local beforeSwirl = portalModel.ribbons[6].part.CFrame
+renderer:animate(portalModel, now+0.4)
+check(portalModel.ribbons[6].part.CFrame ~= beforeSwirl, 'filled portal still animates its swirls')
 renderer:close('1', false)
 now += Config.CloseTime * 0.5
 renderer:animate(portalModel, now)
